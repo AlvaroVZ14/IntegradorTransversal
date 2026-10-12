@@ -2,11 +2,11 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 
-supabase = create_client(
-    st.secrets["https://noldlxbmfjegljktzqxb.supabase.co"],
-    st.secrets["sb_publishable_1Miox6QfQDzfCCTUtEUvEA_7CVPMgeL"]
-)
 
+supabase = create_client(
+    st.secrets["SUPABASE_URL"],
+    st.secrets["SUPABASE_KEY"],
+)
 response = supabase.table("casos").select("*").execute()
 casos = pd.DataFrame(response.data)
 
