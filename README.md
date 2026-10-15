@@ -1,330 +1,118 @@
-\# Integrador Transversal — Mente y Futuro
+# Mente y Futuro · Portal de gestión
 
+Aplicación Streamlit para solicitudes, casos, tarifas, cotizaciones y ventas, con Supabase Auth y PostgreSQL. Usa el logo original y los colores celeste, violeta y amarillo. No incluye marketing ni captación de clientes.
 
+## Las tres secciones
 
-\## Descripción
+| Sección | Cliente | Dueña |
+|---|---|---|
+| Nueva solicitud | Registra una solicitud en su propia cuenta | Registra solicitudes y las vincula a una cuenta de cliente, si existe |
+| Casos y cotizaciones | Consulta solo sus casos y descarga sus cotizaciones | Gestiona casos, emite cotizaciones, registra ventas y administra el tarifario |
+| Dashboard | Sin acceso | Ventas por período, ticket promedio, demanda por temática, estados, conversión y exportaciones CSV |
 
+El tarifario está dentro de **Casos y cotizaciones → Tarifas y servicios**. Las cuentas se crean como clientes; el rol de dueña se asigna únicamente desde Supabase. Los permisos se validan en la base de datos, además de en la interfaz.
 
+## Activar Supabase (una vez)
 
-Este proyecto corresponde al desarrollo de un prototipo de sistema de información para \*\*Mente y Futuro\*\*, con el objetivo de centralizar y ordenar la información relacionada con solicitudes, casos, cotizaciones, ventas y seguimiento de servicios.
+La aplicación necesita estas tablas y funciones antes de utilizar cuentas o guardar registros. La clave publicable no permite crear el esquema.
 
+1. En el proyecto de Supabase correspondiente a `SUPABASE_URL`, abre **SQL Editor → New query**.
+2. Copia y ejecuta **todo** el archivo [migración inicial](supabase/migrations/202610150001_gestion_mente_futuro.sql). Es una transacción: si algo falla, no queda una configuración parcial. Ejecutarlo una sola vez; para comprobar si ya se aplicó, busca la tabla `mf_perfiles`.
+3. En **Authentication → Providers**, mantén habilitado Email. Configura **Authentication → URL Configuration → Site URL** con la URL del Streamlit desplegado (o `http://localhost:8501` para desarrollo). Los correos de confirmación llevan al sitio para iniciar sesión; la app no usa un callback propio.
+4. La dueña debe crear y confirmar su cuenta desde el portal. También puede usar una cuenta de Auth ya existente; la migración crea su perfil como cliente.
+5. En **Authentication → Users**, identifica la cuenta de la dueña y copia su UUID. En SQL Editor ejecuta, reemplazando el marcador:
 
+   ```sql
+   update public.mf_perfiles
+   set rol = 'duena'
+   where id = 'UUID-DE-LA-CUENTA-DE-LA-DUENA'::uuid
+   returning id, nombre, email, rol;
+   ```
 
-Actualmente, parte de esta información se encuentra distribuida en distintos archivos y carpetas, lo que dificulta su consulta y seguimiento.
+   Verifica que el resultado corresponde a la persona correcta. Nunca asignes el rol basándote en datos de registro elegidos por el cliente. La dueña puede actualizar la página para ver sus permisos.
 
+6. Verifica con dos cuentas de cliente que cada una vea únicamente sus solicitudes. La dueña debe ver ambas y el dashboard.
 
+**Datos anteriores:** las tablas nuevas usan el prefijo `mf_` para preservar la tabla `casos` del prototipo sin adivinar su estructura. Los registros anteriores no se importan automáticamente. Antes de publicar, revisa esa tabla en SQL Editor y restringe su acceso anónimo si contiene datos reales. La aplicación nueva no la consulta. Para trasladar registros existentes, primero se necesita conocer sus columnas y vincular cada caso a su cliente correcto.
 
-La propuesta consiste en desarrollar una aplicación web sencilla que permita registrar los casos y visualizar información relevante para apoyar la gestión del negocio.
+## Configuración y ejecución
 
+Python 3.11 o superior:
 
-
-\## Objetivo
-
-
-
-Desarrollar un prototipo funcional que permita:
-
-
-
-\* Registrar nuevas solicitudes de clientes.
-
-\* Centralizar los casos en un solo lugar.
-
-\* Consultar información de los casos y cotizaciones.
-
-\* Mostrar tarifas de referencia.
-
-\* Registrar el estado de cada caso.
-
-\* Visualizar información de ventas mediante un dashboard.
-
-\* Facilitar el seguimiento de los servicios realizados.
-
-
-
-\## Tecnologías utilizadas
-
-
-
-\* \*\*Python\*\*: lenguaje principal del proyecto.
-
-\* \*\*Streamlit\*\*: desarrollo de la interfaz web.
-
-\* \*\*Pandas\*\*: manejo y visualización de datos.
-
-\* \*\*Supabase\*\*: base de datos propuesta para almacenar la información.
-
-\* \*\*Looker Studio\*\*: herramienta considerada para la visualización del dashboard.
-
-\* \*\*GitHub\*\*: control de versiones, documentación y gestión del proyecto.
-
-
-
-\## Funcionalidades del prototipo
-
-
-
-\### Nueva solicitud
-
-
-
-Permite ingresar información básica de una solicitud:
-
-
-
-\* Cliente.
-
-\* Temática.
-
-\* Número de participantes.
-
-\* Cantidad de horas.
-
-\* Estado del caso.
-
-
-
-\### Casos y cotizaciones
-
-
-
-Permite visualizar los casos registrados y consultar información como:
-
-
-
-\* Cliente.
-
-\* Temática.
-
-\* Participantes.
-
-\* Horas.
-
-\* Estado.
-
-\* Tarifa de referencia.
-
-
-
-\### Dashboard
-
-
-
-El prototipo contempla una vista de indicadores para apoyar la gestión, como:
-
-
-
-\* Ventas mensuales.
-
-\* Cantidad de casos.
-
-\* Temáticas más solicitadas.
-
-\* Distribución de ingresos.
-
-
-
-\## Flujo propuesto
-
-
-
-El proceso general considerado para la solución es:
-
-
-
-\*\*Solicitud → Caso → Tarifa de referencia → Cotización → Venta → Seguimiento → Dashboard\*\*
-
-
-
-Este flujo corresponde a la propuesta desarrollada a partir del levantamiento de información y queda sujeto a validación con la contraparte.
-
-
-
-\## Arquitectura propuesta
-
-
-
-```text
-
-Usuario
-
-&#x20;  │
-
-&#x20;  ▼
-
-Streamlit
-
-&#x20;  │
-
-&#x20;  ▼
-
-Supabase
-
-&#x20;  │
-
-&#x20;  ▼
-
-Datos de casos y ventas
-
-&#x20;  │
-
-&#x20;  ▼
-
-Dashboard
-
-```
-
-
-
-La aplicación utiliza Streamlit como interfaz. Supabase se considera como la base de datos para almacenar la información y el dashboard permite visualizar los principales indicadores de gestión.
-
-
-
-\## Datos de prueba
-
-
-
-El prototipo utiliza \*\*datos ficticios de prueba\*\* para demostrar el funcionamiento de las pantallas y del flujo propuesto.
-
-
-
-Los datos mostrados no representan información real de clientes ni ventas de Mente y Futuro.
-
-
-
-\## Estado actual
-
-
-
-El proyecto cuenta actualmente con un prototipo funcional desarrollado en Streamlit que incluye:
-
-
-
-\* Pantalla de nueva solicitud.
-
-\* Vista de casos y cotizaciones.
-
-\* Vista de dashboard.
-
-\* Datos de prueba.
-
-\* Repositorio GitHub.
-
-\* Configuración para mantener las credenciales fuera del repositorio.
-
-
-
-La integración completa con la base de datos y la validación definitiva del proceso quedan como trabajo pendiente.
-
-
-
-\## Seguridad
-
-
-
-Las credenciales de conexión a servicios externos se almacenan mediante:
-
-
-
-```text
-
-.streamlit/secrets.toml
-
-```
-
-
-
-Este archivo se encuentra excluido del repositorio mediante `.gitignore`.
-
-
-
-\*\*No se deben subir claves, contraseñas ni credenciales al repositorio.\*\*
-
-
-
-\## Estructura del proyecto
-
-
-
-```text
-
-IntegradorTransversal/
-
-├── app.py
-
-├── README.md
-
-├── requirements.txt
-
-├── .gitignore
-
-└── docs/
-
-&#x20;   ├── arquitectura.md
-
-&#x20;   ├── proceso.md
-
-&#x20;   └── decisiones.md
-
-```
-
-
-
-\## Ejecución local
-
-
-
-\### 1. Instalar las dependencias
-
-
-
-```bash
-
-pip install -r requirements.txt
-
-```
-
-
-
-\### 2. Ejecutar la aplicación
-
-
-
-```bash
-
+```powershell
+python -m pip install -r requirements.txt
 python -m streamlit run app.py
-
 ```
 
+La configuración local existente se conserva. Para una instalación nueva, copia `.streamlit/secrets.example.toml` como `.streamlit/secrets.toml` y completa:
 
+```toml
+SUPABASE_URL = "https://TU-PROYECTO.supabase.co"
+SUPABASE_KEY = "TU-CLAVE-PUBLICABLE"
+```
 
-La aplicación se abrirá en el navegador mediante la dirección local proporcionada por Streamlit.
+Usa la clave `sb_publishable_...` o la clave `anon`. La aplicación rechaza claves `service_role` y `sb_secret_...` para no saltarse las políticas de acceso. También acepta estas dos variables de entorno. En Streamlit Community Cloud, configura los mismos valores en **Settings → Secrets**. Nunca subas `secrets.toml` al repositorio.
 
+## Cómo se utiliza
 
+1. El cliente inicia sesión y envía una solicitud. Solo se confirma el guardado después de recibir respuesta de Supabase.
+2. La dueña abre el caso, revisa sus datos y, si lo registró manualmente, puede vincularlo a una cuenta existente. El correo de contacto por sí solo no otorga acceso.
+3. En **Cotizaciones**, elige una tarifa o un valor personalizado, revisa alcance, descuento, IVA, vigencia y condiciones. El total se calcula antes de emitir.
+4. Al emitir se guarda una copia del contenido y los valores. Las propuestas se descargan en HTML con el logo; pueden imprimirse o guardarse como PDF desde el navegador. La descarga no envía un correo ni acepta la propuesta.
+5. En **Venta**, la dueña confirma la aceptación, registra su fecha y el estado del pago. Se admite una venta por caso, asociada a una cotización de ese mismo caso. La fecha debe estar dentro de la vigencia y no ser futura. El monto proviene de la cotización, sin volver a consultar la tarifa.
+6. La dueña puede actualizar el estado del pago o anular la venta. El dashboard excluye las ventas anuladas. El seguimiento del caso se administra por separado de su estado de pago.
 
-\## Proyecto académico
+## Tarifas de los documentos
 
+La migración incluye 11 referencias: 3 planes individuales, 3 planes dúo por separado, 3 planes dúo en conjunto, taller de escape room y charla de liderazgo. Todos los montos están en CLP y representan el total del plan, no una tarifa por hora.
 
+- Individual: 4 / 6 / 8 sesiones por $420.000 / $580.000 / $740.000.
+- Dúo separado: totales de $714.000 / $986.000 / $1.258.000 para dos personas. Las horas de atención suman las sesiones de ambas personas.
+- Dúo conjunto: totales de $546.000 / $754.000 / $962.000 para dos personas.
+- Escape room: referencia de $4.580.000 para 56 participantes y 8 horas.
+- Charla: referencia de $2.650.000 para hasta 300 personas y 1 hora.
 
-Este proyecto forma parte del \*\*Integrador Transversal\*\* y del trabajo de \*\*Aprendizaje + Servicio (A+S)\*\*, aplicando conocimientos de desarrollo de sistemas, gestión de datos y visualización para abordar una necesidad identificada junto a una contraparte real.
+Las dos cotizaciones corporativas señalan exención de IVA; los planes de coaching quedan con **IVA por confirmar**, porque el documento no define ese tratamiento. La dueña debe elegirlo antes de emitir. Los descuentos históricos de aniversario del 15% no se aplican automáticamente. Las condiciones comerciales iniciales son editables y deben revisarse para cada servicio.
 
+## Indicadores
 
+- **Ventas del período:** suma de ventas no anuladas por fecha de aceptación, con los impuestos de cada propuesta. No equivale a dinero cobrado.
+- **Ticket promedio:** monto vendido / número de ventas del período.
+- **Demanda:** solicitudes según fecha de creación en `America/Santiago`.
+- **Conversión:** porcentaje de solicitudes creadas en el período con venta no anulada hasta la fecha final seleccionada.
+- **Ventas con pago pendiente:** valor completo de ventas no pagadas totalmente, incluidas las que tienen abonos. No es un saldo exacto por cobrar; esta versión no lleva un libro de pagos parciales.
+- Las solicitudes conservan su estado actual; el dashboard no reconstruye el estado histórico en cada fecha. El filtro por servicio utiliza la clasificación actual del caso.
 
-\## Próximos pasos
+## Validación
 
+Pruebas de cálculo, seguridad de exportación y recorrido de Streamlit con repositorio aislado:
 
+```powershell
+python -m unittest discover -s tests -p "test_*.py" -v
+```
 
-\* Validar con Karen el proceso real de cierre, cobro y facturación.
+Prueba del SQL en PostgreSQL efímero (PGlite), sin tocar Supabase:
 
-\* Confirmar cómo se calculan las tarifas y el reparto de los ingresos.
+```powershell
+npm install --prefix tmp/db-test --no-audit --no-fund @electric-sql/pglite
+node tests/test_database.mjs
+```
 
-\* Validar el flujo descrito en la documentación.
+La suite SQL verifica permisos de lectura y escritura, aislamiento entre clientes, promoción de roles bloqueada, cotizaciones inmutables, cálculos, concurrencia, duplicados y relación entre cotización y venta. Estas pruebas no sustituyen la prueba final con cuentas en el proyecto real después de aplicar la migración.
 
-\* Completar la integración con Supabase.
+## Estructura
 
-\* Conectar los datos reales con el dashboard.
+```text
+app.py                     Entrada, sesión y navegación
+mente_futuro/
+  domain.py                Validaciones, montos e indicadores
+  repository.py            Acceso autenticado a Supabase
+  pages.py                 Las tres vistas
+  ui.py                    Acceso y componentes comunes
+  presentation.py          Estilos y cotización imprimible
+assets/                    Logo original
+supabase/migrations/       Esquema, permisos y tarifas iniciales
+tests/                     Pruebas de aplicación y PostgreSQL
+```
 
-\* Ajustar el sistema según las validaciones realizadas.
-
-
-
+Referencias de implementación: [Supabase Auth para Python](https://supabase.com/docs/reference/python/auth-signinwithpassword), [permisos RLS](https://supabase.com/docs/guides/database/postgres/row-level-security) y [pruebas de Streamlit](https://docs.streamlit.io/develop/api-reference/app-testing/st.testing.v1.apptest).
