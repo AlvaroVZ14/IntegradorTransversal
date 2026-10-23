@@ -1,7 +1,16 @@
 # Mantenimiento y respaldo
 
-Implementación del 22/10/2026. No está activada en GitHub ni aplicada en el proyecto
-de Supabase por el solo hecho de tener estos archivos locales.
+Implementación del 22/10/2026. La presencia de estos archivos no demuestra que
+exista un respaldo correcto: comprueba la última ejecución en Actions y /estado.
+
+Publicación realizada en `AlvaroVZ14/IntegradorTransversal`; workflows copiados al
+repositorio privado `AlvaroVZ14/mente-futuro-mantenimiento`. Se configuraron
+`SUPABASE_URL`, `APP_URL`, `BACKUP_ENCRYPTION_KEY` y `MAINTENANCE_ENABLED=true`.
+La tabla y la RPC de respaldo existen en el proyecto conectado y bloquean acceso
+anónimo. **Pendiente: agregar `SUPABASE_SERVER_KEY` al repositorio privado y
+comprobar el primer respaldo.** No hay una copia automática confirmada por esta
+configuración todavía. La clave de recuperación queda también en el archivo
+local `.streamlit/secrets.toml`, excluido de Git; conservarla en un gestor privado.
 
 ## Límites reales del plan gratuito
 
@@ -103,8 +112,9 @@ Fuentes oficiales consultadas:
    también el aviso de respaldo antiguo en Configuración.
 
 Ambos workflows se **omiten en repositorios públicos**, incluso al ejecutarlos a
-mano. No basta con copiarlos al repositorio público de la app. No se han creado
-repositorios, agregado secretos ni activado tareas en tu cuenta desde esta entrega.
+mano. No basta con copiarlos al repositorio público de la app. Para esta cuenta
+ya se creó el repositorio privado y la programación está habilitada, pero aún
+necesita el secreto administrativo pendiente para poder generar respaldos.
 
 ## Qué se respalda y dónde
 
