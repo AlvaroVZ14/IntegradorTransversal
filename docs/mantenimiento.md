@@ -7,9 +7,15 @@ Publicación realizada en `AlvaroVZ14/IntegradorTransversal`; workflows copiados
 repositorio privado `AlvaroVZ14/mente-futuro-mantenimiento`. Se configuraron
 `SUPABASE_URL`, `APP_URL`, `BACKUP_ENCRYPTION_KEY` y `MAINTENANCE_ENABLED=true`.
 La tabla y la RPC de respaldo existen en el proyecto conectado y bloquean acceso
-anónimo. **Pendiente: agregar `SUPABASE_SERVER_KEY` al repositorio privado y
-comprobar el primer respaldo.** No hay una copia automática confirmada por esta
-configuración todavía. La clave de recuperación queda también en el archivo
+anónimo. `SUPABASE_SERVER_KEY` ya está configurada. **Primer respaldo confirmado**:
+22/10/2026 22:21, hora de Chile, ejecución `39883546408`. Se descargó el artefacto
+cifrado y se verificaron descifrado, integridad del ZIP y hashes de sus 11 tablas,
+sin escribir CSV sin cifrar en disco. El monitor distingue una respuesta del
+servidor (`ok` en salud) de una respuesta solo del portal de Community Cloud.
+En este último caso registra una advertencia en Actions: el enlace responde,
+pero no se confirma el formulario ni que la app esté despierta. Un HTTP 200
+del portal no se presenta como una prueba de salud del servidor.
+La clave de recuperación queda también en el archivo
 local `.streamlit/secrets.toml`, excluido de Git; conservarla en un gestor privado.
 
 ## Límites reales del plan gratuito
@@ -18,7 +24,12 @@ local `.streamlit/secrets.toml`, excluido de Git; conservarla en un gestor priva
   Cualquier visitante autorizado puede pulsar **Yes, get this app back up!**.
   El workflow revisa HTML y `/_stcore/health` cada dos días; esa frecuencia no evita
   una suspensión a las 12 horas. Un HTTP 200 puede ser una página de hibernación:
-  se detectan sus mensajes conocidos, redirecciones y respuestas de salud inválidas.
+  se detectan sus mensajes conocidos y respuestas de salud inválidas. Se permiten
+  redirecciones HTTPS normales solo entre la app y `share.streamlit.io`, con
+  cookies temporales en memoria y sin credenciales. Las consultas a Supabase
+  y GitHub siguen sin permitir redirecciones.
+  Si el endpoint devuelve el HTML del portal conocido, se comprueba solo la
+  respuesta HTTP y se deja advertencia en Actions, sin declararlo una caída.
   Incluso pasar ambos controles **no demuestra** que Auth, WebSocket y el envío
   del formulario funcionen. No hay una garantía documentada de que pings HTTP
   mantengan la app despierta; aumentar su frecuencia no permite prometerlo.
@@ -113,8 +124,8 @@ Fuentes oficiales consultadas:
 
 Ambos workflows se **omiten en repositorios públicos**, incluso al ejecutarlos a
 mano. No basta con copiarlos al repositorio público de la app. Para esta cuenta
-ya se creó el repositorio privado y la programación está habilitada, pero aún
-necesita el secreto administrativo pendiente para poder generar respaldos.
+ya se creó el repositorio privado, se configuraron los secretos y la programación
+está habilitada. La primera copia cifrada ya se comprobó correctamente.
 
 ## Qué se respalda y dónde
 
@@ -214,7 +225,8 @@ las otras pruebas; si falta, instala `npm install --prefix tmp/db-test --no-audi
 | Configuración → Descargar respaldo | Un ZIP con 11 CSV y manifiesto; tablas vacías tienen cabeceras; fecha automática no cambia |
 | Más de 1.000 casos ficticios | Se exportan todos: la RPC no usa paginación REST ni límite predeterminado de 1.000 |
 | Supabase caído / clave inválida | Job falla y abre issue si GitHub funciona; no se registra éxito ni se borra la última fecha correcta |
-| Streamlit dormido con HTTP 200 o redirección | Monitor falla; no declara que el formulario está disponible |
+| Página conocida de hibernación o error HTTP | Monitor falla y genera issue; no declara que el formulario está disponible |
+| Redirección normal al portal y HTML de Community Cloud | Advierte que solo se verificó HTTP; no confirma salud del servidor ni estado despierto |
 | Respaldo semanal | Artefacto privado cifrado, descarga/descifrado verificables y fecha actualizada después de la subida |
 | Clave incorrecta/cifrado alterado | Descifrado rechazado sin crear ZIP |
 | Repositorio público / variable false | Jobs omitidos; configurar el repositorio privado o activar la variable, respectivamente |

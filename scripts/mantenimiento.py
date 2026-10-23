@@ -10,6 +10,8 @@ import sys
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.request import HTTPCookieProcessor
+from http.cookiejar import CookieJar
 
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 from servicios.respaldos import zip_csv
@@ -22,11 +24,29 @@ class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):return None
 
 
-def request(url,headers=None,payload=None,max_bytes=MAX_RESPONSE):
+class StreamlitRedirect(HTTPRedirectHandler):
+    """Solo para HTTP público: permite el intermediario oficial de Cloud."""
+    max_redirections=6
+
+    def __init__(self,host):self.host=host
+
+    def redirect_request(self,req,fp,code,msg,headers,newurl):
+        destino=urlparse(newurl)
+        if (destino.scheme!='https' or destino.hostname not in (self.host,'share.streamlit.io')
+            or destino.username or destino.port not in (None,443)
+            or req.has_header('Authorization') or req.has_header('Apikey')):
+            raise ValueError('Redirección pública no permitida')
+        return super().redirect_request(req,fp,code,msg,headers,newurl)
+
+
+class EstadoStreamlitError(RuntimeError):pass
+
+
+def request(url,headers=None,payload=None,max_bytes=MAX_RESPONSE,_opener=None):
     data=None if payload is None else json.dumps(payload).encode()
     req=Request(url,data=data,headers=dict(headers or {},**{'User-Agent':'MenteFuturo-Mantenimiento/1','Content-Type':'application/json'}))
     # No reenviar credenciales a otro host mediante una redirección.
-    with build_opener(NoRedirect).open(req,timeout=60) as response:
+    with (_opener or build_opener(NoRedirect)).open(req,timeout=60) as response:
         body=response.read(max_bytes+1)
         if len(body)>max_bytes:raise ValueError('Respuesta demasiado grande')
         return body
@@ -61,15 +81,24 @@ def registrar(tipo,estado,artifact=None,digest=None):
 
 def comprobar_app(url):
     parsed=urlparse(url)
-    if parsed.scheme!='https' or not parsed.hostname or not parsed.hostname.endswith('.streamlit.app') or parsed.username or parsed.query or parsed.fragment:
+    if parsed.scheme!='https' or not parsed.hostname or not parsed.hostname.endswith('.streamlit.app') or parsed.username or parsed.query or parsed.fragment or parsed.port not in (None,443):
         raise ValueError('URL pública inválida')
     root=url.rstrip('/')
-    html=request(root+'/',max_bytes=2*1024*1024).decode('utf-8',errors='replace').lower()
+    # Cloud puede asignar cookies públicas mediante redirecciones 303. Nunca
+    # reutilizar este opener para Supabase/GitHub ni enviar claves a sus saltos.
+    opener=build_opener(StreamlitRedirect(parsed.hostname),HTTPCookieProcessor(CookieJar()))
+    html=request(root+'/',max_bytes=2*1024*1024,_opener=opener).decode('utf-8',errors='replace').lower()
     dormida=('has gone to sleep','get this app back up','app is sleeping','app is in the oven')
-    if any(t in html for t in dormida):raise RuntimeError('App dormida')
-    if 'streamlit' not in html:raise RuntimeError('Página no reconocida')
-    health=request(root+'/_stcore/health',max_bytes=1024).decode().strip().lower()
-    if health not in ('ok','healthy'):raise RuntimeError('Salud no confirmada')
+    if any(t in html for t in dormida):raise EstadoStreamlitError('App dormida')
+    if 'streamlit' not in html:raise EstadoStreamlitError('Página no reconocida')
+    health=request(root+'/_stcore/health',max_bytes=2*1024*1024,_opener=opener).decode().strip().lower()
+    if health not in ('ok','healthy'):
+        # El frontend de Community Cloud devuelve su propio HTML para rutas
+        # desconocidas. Confirma únicamente HTTP, jamás salud del formulario.
+        if '/-/build/' in html and '/-/build/' in health:
+            return 'portal'
+        raise EstadoStreamlitError('El enlace responde, pero Community Cloud no permite confirmar la salud de la app.')
+    return 'servidor'
     # HTTP + salud no equivalen a completar un formulario con Auth/WebSocket.
 
 
@@ -77,8 +106,13 @@ def monitor():
     errores=[]
     try:supabase('mf_casos?select=id&limit=1')
     except Exception:errores.append('Supabase')
-    try:comprobar_app(secret('APP_URL'))
-    except Exception:errores.append('Streamlit')
+    try:
+        if comprobar_app(secret('APP_URL'))=='portal':
+            print('::warning::El enlace publico responde mediante Community Cloud; la salud del formulario no se pudo verificar. No implica una caida ni garantiza que la app este despierta.')
+    except Exception as error:
+        errores.append('Streamlit')
+        razon=('HTTP '+str(error.code)) if isinstance(error,HTTPError) else str(error) if isinstance(error,EstadoStreamlitError) else type(error).__name__
+        print('Streamlit: '+razon)
     try:
         from datetime import datetime,timezone
         rows=supabase('mf_mantenimiento?select=created_at&tipo=eq.respaldo&estado=eq.ok&order=created_at.desc&limit=1')
@@ -90,7 +124,7 @@ def monitor():
     if errores:
         print('Comprobaciones pendientes: '+', '.join(errores))
         raise RuntimeError('Comprobación incompleta')
-    print('Consulta, respuesta HTTP, salud y antigüedad del respaldo comprobadas; no garantiza disponibilidad del formulario.')
+    print('Supabase, respuesta HTTP publica y antiguedad del respaldo comprobadas. Esto no garantiza disponibilidad del formulario.')
 
 
 def clave():

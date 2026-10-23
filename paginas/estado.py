@@ -73,6 +73,7 @@ def page(repo):
         monitor=repo.maintenance_latest('monitor')
         if monitor:st.caption('Última revisión automática: '+fecha_chile(monitor['created_at'])+' · '+monitor['estado'])
         else:st.caption('Monitoreo automático: sin ejecución registrada.')
+        st.caption('La revisión automática comprueba Supabase, el respaldo y la respuesta HTTP del enlace; no confirma que el formulario funcione ni evita la hibernación.')
     except Exception:st.warning('No pudimos leer los registros de correos o mantenimiento.')
 
 

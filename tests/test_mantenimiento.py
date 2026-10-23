@@ -8,7 +8,8 @@ from unittest.mock import patch
 from zipfile import ZipFile
 from cryptography.exceptions import InvalidTag
 from servicios.respaldos import TABLAS,zip_csv
-from scripts.mantenimiento import cifrar,descifrar,comprobar_app,monitor
+from scripts.mantenimiento import cifrar,descifrar,comprobar_app,monitor,StreamlitRedirect
+from urllib.request import Request
 
 
 def snapshot_ficticio():
@@ -64,3 +65,22 @@ class RespaldoTests(unittest.TestCase):
         with patch('scripts.mantenimiento.supabase',side_effect=ConnectionError()),patch('scripts.mantenimiento.secret',return_value='https://ficticia.streamlit.app'),patch('scripts.mantenimiento.comprobar_app') as app,patch('scripts.mantenimiento.registrar') as reg:
             with self.assertRaises(RuntimeError):monitor()
             app.assert_called_once();reg.assert_called_once_with('monitor','error')
+
+    def test_public_cloud_redirects_allowed_but_credentials_and_other_hosts_rejected(self):
+        redirect=StreamlitRedirect('ficticia.streamlit.app')
+        req=Request('https://ficticia.streamlit.app/')
+        for target in ['https://share.streamlit.io/-/auth/app','https://ficticia.streamlit.app/']:
+            self.assertEqual(redirect.redirect_request(req,None,303,'',{},target).full_url,target)
+        for target in ['http://ficticia.streamlit.app/','https://otro.example.test/',
+                       'https://share.streamlit.io.ejemplo.test/','https://usuario@share.streamlit.io/']:
+            with self.assertRaises(ValueError):redirect.redirect_request(req,None,303,'',{},target)
+        for name in ['Authorization','apikey']:
+            credential=Request('https://ficticia.streamlit.app/',headers={name:'valor-ficticio'})
+            with self.assertRaises(ValueError):redirect.redirect_request(credential,None,303,'',{},'https://share.streamlit.io/')
+
+    def test_cloud_portal_response_never_claims_form_is_healthy(self):
+        shell=b'<html>Streamlit<script src="/-/build/assets/index.js"></script></html>'
+        with patch('scripts.mantenimiento.request',side_effect=[shell,shell]):
+            self.assertEqual(comprobar_app('https://ficticia.streamlit.app/'),'portal')
+        with patch('scripts.mantenimiento.request',side_effect=[b'Streamlit',b'ok']):
+            self.assertEqual(comprobar_app('https://ficticia.streamlit.app/'),'servidor')
