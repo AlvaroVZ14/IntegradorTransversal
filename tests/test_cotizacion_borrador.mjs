@@ -1,0 +1,21 @@
+import {readFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const source=readFileSync(new URL('../utils/cotizacion_borrador.js',import.meta.url),'utf8');
+const create=new Function('window','document','Element','setTimeout','clearTimeout',source.replace('export default function(','return function('));
+const storage={};Object.defineProperties(storage,{getItem:{value:k=>storage[k]??null},setItem:{value:(k,v)=>storage[k]=v},removeItem:{value:k=>delete storage[k]}});
+const events={},wevents={},reports=[];let timer=null;
+const document={addEventListener:(k,v)=>events[k]=v,removeEventListener:k=>delete events[k]};
+const window={sessionStorage:storage,addEventListener:(k,v)=>wevents[k]=v,removeEventListener:k=>delete wevents[k]};
+class Element{constructor(field,value){this.field=field;this.value=value;}closest(selector){return selector.endsWith(this.field)?this:null;}}
+const data={user:'admin-ficticio',id:'caso-ficticio',fields:['objetivos'],saved:{objetivos:'Texto original'},ack:{}};
+const mount=()=>create(window,document,Element,cb=>{timer=cb;return 1;},()=>{timer=null;})({data,setStateValue:(k,v)=>reports.push(structuredClone(v))});
+let cleanup=mount();events.input({target:new Element('objetivos','Edición ficticia')});
+assert.equal(reports.length,0);assert.ok(timer);timer();assert.equal(reports[0].objetivos,'Edición ficticia');
+cleanup();data.ack=reports[0];cleanup=mount();assert.equal(reports.length,1);
+cleanup();data.saved={objetivos:'Edición ficticia'};cleanup=mount();assert.equal(storage['mfy-cotizacion:admin-ficticio:caso-ficticio'],undefined);
+events.input({target:new Element('objetivos','Texto sin conexión')});cleanup();data.ack={};cleanup=mount();
+assert.equal(reports.at(-1).objetivos,'Texto sin conexión');
+cleanup();data.reset={objetivos:'restablecer-1'};data.saved={objetivos:'Texto original'};cleanup=mount();
+assert.equal(storage['mfy-cotizacion:admin-ficticio:caso-ficticio'],undefined);
+events.click({target:new Element('logout','')});assert.equal(storage['mfy-cotizacion:admin-ficticio:caso-ficticio'],undefined);
+cleanup();console.log('Borrador cotización: pausa de escritura, respaldo, recuperación, reconocimiento y salida aprobados.');

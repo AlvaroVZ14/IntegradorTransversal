@@ -1,0 +1,39 @@
+name: Comprobar disponibilidad
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 10 */2 * *' # UTC; cada dos días (puede haber 3 entre meses).
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: mantenimiento-monitor
+  cancel-in-progress: false
+jobs:
+  monitor:
+    # Copiar a un repositorio PRIVADO de mantenimiento. Nunca ejecutar en PR.
+    if: github.event.repository.private == true && (vars.MAINTENANCE_ENABLED == 'true' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Comprobar Supabase, Streamlit y respaldo
+        id: check
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVER_KEY: ${{ secrets.SUPABASE_SERVER_KEY }}
+          APP_URL: ${{ secrets.APP_URL }}
+        run: python scripts/mantenimiento.py monitor
+      - name: Abrir o actualizar alerta privada
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/mantenimiento.py issue --kind monitor --failed
+      - name: Cerrar alerta recuperada
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/mantenimiento.py issue --kind monitor

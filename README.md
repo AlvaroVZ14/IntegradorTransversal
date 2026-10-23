@@ -7,7 +7,7 @@ Aplicación Streamlit para solicitudes, casos, tarifas, cotizaciones y ventas, c
 | Sección | Cliente | Dueña |
 |---|---|---|
 | Nueva solicitud | Registra una solicitud en su propia cuenta | Registra solicitudes y las vincula a una cuenta de cliente, si existe |
-| Casos y cotizaciones | Consulta solo sus casos y descarga sus cotizaciones | Gestiona casos, emite cotizaciones, registra ventas y administra el tarifario |
+| Casos y cotizaciones | Sin acceso | Gestiona casos, emite cotizaciones, registra ventas y administra el tarifario |
 | Dashboard | Sin acceso | Ventas por período, ticket promedio, demanda por temática, estados, conversión y exportaciones CSV |
 
 El tarifario está dentro de **Casos y cotizaciones → Tarifas y servicios**. Las cuentas se crean como clientes; el rol de dueña se asigna únicamente desde Supabase. Los permisos se validan en la base de datos, además de en la interfaz.
@@ -24,7 +24,7 @@ La aplicación necesita estas tablas y funciones antes de utilizar cuentas o gua
 
    ```sql
    update public.mf_perfiles
-   set rol = 'duena'
+   set rol = 'admin'
    where id = 'UUID-DE-LA-CUENTA-DE-LA-DUENA'::uuid
    returning id, nombre, email, rol;
    ```
@@ -74,6 +74,12 @@ La migración incluye 11 referencias: 3 planes individuales, 3 planes dúo por s
 
 Las dos cotizaciones corporativas señalan exención de IVA; los planes de coaching quedan con **IVA por confirmar**, porque el documento no define ese tratamiento. La dueña debe elegirlo antes de emitir. Los descuentos históricos de aniversario del 15% no se aplican automáticamente. Las condiciones comerciales iniciales son editables y deben revisarse para cada servicio.
 
+## Dashboard por períodos
+
+La interfaz está en `paginas/dashboard.py` y la lógica en `servicios/dashboard.py`. Incluye cinco agrupaciones, filtros superiores, rangos rápidos y comparación con el bloque anterior. Consulta [cómo funciona y cómo probarlo](docs/dashboard_periodos.md).
+
+La [presentación visual posterior](docs/dashboard_visual.md) incorpora Plotly, estilos centralizados, seis KPI y ocho gráficos. Agrega `plotly>=6.1,<7`, sin modificar los cálculos ni las consultas. Incluye una muestra HTML con datos ficticios y no requiere SQL adicional.
+
 ## Indicadores
 
 - **Ventas del período:** suma de ventas no anuladas por fecha de aceptación, con los impuestos de cada propuesta. No equivale a dinero cobrado.
@@ -100,7 +106,34 @@ node tests/test_database.mjs
 
 La suite SQL verifica permisos de lectura y escritura, aislamiento entre clientes, promoción de roles bloqueada, cotizaciones inmutables, cálculos, concurrencia, duplicados y relación entre cotización y venta. Estas pruebas no sustituyen la prueba final con cuentas en el proyecto real después de aplicar la migración.
 
+## Cambio de permisos del 21/10/2026
+
+Consulta [la guía de activación, pruebas manuales y reversión](docs/cliente_solo_solicitud.md). El código de permisos requiere la migración de ese día antes de publicarse. Esa entrega no agrega dependencias; la mejora visual posterior requiere Plotly.
+
 ## Estructura
+
+La actualización de presentación del portal, archivos completos y matriz de revisión a 375 px, 768 px y escritorio están en [Portal como producto](docs/portal_producto.md).
+
+La unificación más reciente de encabezados, tarjetas y formularios está en [Lenguaje visual común](docs/lenguaje_visual.md), con la entrega completa y sus pruebas.
+
+El reemplazo del radio por navegación nativa, permisos por rol y paletas de la barra lateral está en [Navegación lateral](docs/navegacion_lateral.md).
+
+El autoguardado de casos, reintentos, Deshacer, caché y evaluación de sesión están en [Autoguardado](docs/autoguardado.md), con sus límites y pruebas manuales.
+
+La vinculación por correo, búsqueda de empresas, RUT, teléfono, sugerencias, duplicados y recuperación del formulario están en [Solicitud rápida](docs/solicitud_rapida.md). Requiere ejecutar la migración SQL indicada en esa guía para almacenar RUT y cargo.
+
+El editor prellenado de cotizaciones, borrador persistente, Word/PDF, correo confirmado y aceptación/venta están en [Cotizador asistido](docs/cotizador_asistido.md). Incluye SQL de activación, configuración del emisor y SMTP, y pruebas con datos ficticios.
+
+El inicio administrativo Hoy, las tareas accionables, los mensajes preparados y el cierre con Deshacer están en [Hoy](docs/hoy.md). El resumen diario por GitHub Actions queda documentado como ampliación opcional, sin activar envíos automáticos.
+
+## Si el formulario está dormido o falla
+
+1. Si aparece “Zzzz / This app has gone to sleep”, pulsa **Yes, get this app back up!** y espera. Cualquier visitante autorizado puede hacerlo. Si aparece un error, avisa a la persona responsable del repositorio y adjunta la hora y captura, sin claves ni datos del cliente.
+2. Si sigue fallando, la administradora revisa Supabase: si está pausado, pulsa **Resume project**. No borres el proyecto ni vuelvas a ejecutar todas las migraciones para intentar arreglarlo. Revisa también las issues privadas de mantenimiento y los logs de Streamlit.
+3. Al recuperar el acceso, entra con Administración a **`/estado`** y a **Casos y cotizaciones**: comprueba el último código/fecha y busca el correo de la solicitud esperada. Solo una pantalla de éxito con código confirma el registro del formulario. Un intento mientras estaba caído podría no haberse guardado; un respaldo tampoco recupera solicitudes nunca recibidas. Si falta, contacta al cliente por el canal habitual y verifica antes de registrarla otra vez.
+4. En **Casos y cotizaciones → Configuración**, descarga un ZIP si necesitas una copia inmediata. La tarjeta muestra la última copia automática confirmada, no la última copia manual.
+
+La [guía de mantenimiento](docs/mantenimiento.md) contiene los dos workflows, SQL nuevo, secretos del repositorio privado, recuperación y pruebas. **Streamlit puede dormir a las 12 horas y Supabase pausar por baja actividad en 7 días**: estas comprobaciones no garantizan disponibilidad continua gratuita. Los workflows requieren activación y guardan únicamente respaldos cifrados en un repositorio privado; no subas CSV a uno público.
 
 ```text
 app.py                     Entrada, sesión y navegación

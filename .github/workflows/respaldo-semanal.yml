@@ -1,0 +1,60 @@
+name: Respaldo semanal cifrado
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '43 9 * * 1' # Lunes 09:43 UTC (06:43 o 05:43 en Chile).
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: mantenimiento-respaldo
+  cancel-in-progress: false
+jobs:
+  backup:
+    if: github.event.repository.private == true && (vars.MAINTENANCE_ENABLED == 'true' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVER_KEY: ${{ secrets.SUPABASE_SERVER_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-mantenimiento.txt
+      - name: Exportar, verificar y cifrar en memoria
+        id: backup
+        env:
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+        run: python scripts/mantenimiento.py backup
+      - name: Guardar solo el archivo cifrado
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: respaldo-${{ github.run_id }}-${{ github.run_attempt }}
+          path: backup-encrypted/respaldo.mfy
+          if-no-files-found: error
+          retention-days: 28
+          compression-level: 0
+      - name: Registrar respaldo automático confirmado
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          BACKUP_SHA256: ${{ steps.backup.outputs.sha256 }}
+        run: python scripts/mantenimiento.py confirm --artifact "$ARTIFACT_ID" --sha256 "$BACKUP_SHA256"
+      - name: Registrar fallo
+        if: failure()
+        run: python scripts/mantenimiento.py failure --kind respaldo
+      - name: Abrir o actualizar alerta privada
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/mantenimiento.py issue --kind respaldo --failed
+      - name: Cerrar alerta recuperada
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/mantenimiento.py issue --kind respaldo
+      - name: Limpiar archivo del runner
+        if: always()
+        run: python -c "from pathlib import Path; Path('backup-encrypted/respaldo.mfy').unlink(missing_ok=True)"

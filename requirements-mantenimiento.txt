@@ -1,0 +1,2 @@
+# Solo GitHub Actions o recuperación local; no añade dependencias a Streamlit.
+cryptography>=46,<51

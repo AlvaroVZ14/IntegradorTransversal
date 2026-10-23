@@ -1,5 +1,4 @@
 """Componentes comunes y acceso al portal."""
-from html import escape
 import logging
 
 import streamlit as st
@@ -7,16 +6,21 @@ from supabase_auth.errors import AuthApiError
 
 from .presentation import LOGO
 from .repository import ConfigurationError, public_client
+from utils.componentes import encabezado_pagina
 
 logger = logging.getLogger(__name__)
 
 
 def show_error(error, message="No pudimos completar la operación. Tus datos no se han confirmado como guardados."):
-    if isinstance(error, (ValueError, PermissionError, ConfigurationError)):
+    # Los mensajes de validación propios se conservan; los fallos técnicos no se exponen.
+    if isinstance(error, ValueError) and str(error).startswith(("Este caso", "La tarifa", "La venta", "Ingresa", "Revisa", "Debes", "Selecciona", "La fecha")):
         st.error(str(error))
+    elif isinstance(error, PermissionError):
+        st.error("Esta sección está disponible solo para Administración. Vuelve a Nueva solicitud.")
+    elif isinstance(error, ConfigurationError):
+        st.error("El portal necesita completar su configuración. Contacta a la administradora para ayudarte.")
     elif getattr(error, "code", "") in ("PGRST205", "42P01", "PGRST202"):
-        st.error("La base de datos necesita completar su configuración inicial.")
-        st.caption("Ejecuta la migración incluida en supabase/migrations. Los pasos están en README.md.")
+        st.error("Estamos preparando el portal. Por favor, contacta a la administradora o vuelve a intentarlo más tarde.")
     else:
         st.error(message)
         st.caption("Puedes volver a intentar. Si el problema continúa, contacta a la administradora.")
@@ -24,6 +28,8 @@ def show_error(error, message="No pudimos completar la operación. Tus datos no 
 
 
 def flash(message):
+    from servicios.dashboard_cache import invalidar_dashboard
+    invalidar_dashboard()
     st.session_state["notice"] = message
     st.rerun()
 
@@ -41,25 +47,15 @@ def logout():
 
 
 def header(title, subtitle, section):
-    st.markdown(f'<div class="eyebrow">MI ESPACIO / {escape(section)}</div>', unsafe_allow_html=True)
-    st.title(title)
-    st.markdown(f'<div class="intro">{escape(subtitle)}</div>', unsafe_allow_html=True)
+    """Adaptador de importaciones anteriores al encabezado común."""
+    encabezado_pagina(title, subtitle, section, "✦")
 
 
 def login():
-    left, right = st.columns([1.15, 1], gap="large")
-    with left:
-        st.image(str(LOGO), width=280)
-        st.markdown('''<div class="login-intro"><div class="eyebrow">PORTAL DE GESTIÓN</div>
-        <h1>Tu próximo paso,<br>en un solo lugar.</h1>
-        <p>Un espacio para conectar tus necesidades con nuevas oportunidades de aprendizaje y desarrollo.</p>
-        <div class="login-features"><span><b>01</b> Cuéntanos qué necesitas</span>
-        <span><b>02</b> Revisa tus solicitudes y cotizaciones</span>
-        <span><b>03</b> Sigue el avance de cada servicio</span></div></div>''', unsafe_allow_html=True)
-    with right:
-        st.markdown("<div style='height:45px'></div>", unsafe_allow_html=True)
-        st.subheader("Te damos la bienvenida")
-        st.caption("Ingresa a tu espacio de Mente y Futuro.")
+    with st.container(key="mfy_login"):
+        st.image(str(LOGO), width="stretch")
+        st.title("Te damos la bienvenida")
+        st.markdown('<p class="mfy-login-subtitle">Conectemos tus necesidades con nuevas oportunidades.</p>', unsafe_allow_html=True)
         signin, signup = st.tabs(["Iniciar sesión", "Crear cuenta de cliente"])
         with signin:
             with st.form("login"):
@@ -75,6 +71,7 @@ def login():
                         result = client.auth.sign_in_with_password({"email":email.strip(), "password":password})
                         if result.session:
                             st.session_state.auth_client = client
+                            st.session_state.inicio_tras_login = True
                             st.rerun()
                     except AuthApiError:
                         st.error("No fue posible ingresar. Revisa tu correo, contraseña y confirmación de cuenta.")
@@ -96,9 +93,12 @@ def login():
                         result = client.auth.sign_up({"email":new_email.strip(), "password":new_password, "options":{"data":{"nombre":name.strip()}}})
                         if result.session:
                             st.session_state.auth_client = client
+                            st.session_state.inicio_tras_login = True
                             st.rerun()
                         st.success("Revisa tu correo para confirmar la cuenta y luego inicia sesión. Si ya tenías una cuenta, ingresa con tus datos.")
                     except Exception as error:
                         show_error(error, "No se pudo completar el registro. Revisa los datos o intenta más tarde.")
-        st.markdown('<div class="note">Cada cliente tiene un espacio personal para consultar sus solicitudes. La administración utiliza una cuenta con permisos propios.</div>', unsafe_allow_html=True)
-    st.markdown('<div class="footer">MENTE Y FUTURO · Creando canales para el aprendizaje</div>', unsafe_allow_html=True)
+        st.markdown('<div class="note">Desde tu cuenta puedes enviar una solicitud. Revisaremos tus necesidades y te contactaremos para preparar una propuesta a tu medida.</div>', unsafe_allow_html=True)
+    st.markdown('''<div class="mfy-login-steps"><span><b>01</b> Cuéntanos qué necesitas</span>
+    <span><b>02</b> Revisamos tu solicitud</span>
+    <span><b>03</b> Te enviamos una propuesta a tu medida</span></div>''', unsafe_allow_html=True)

@@ -7,3 +7,7 @@ tmp/
 .venv/
 .env
 *.log
+output/
+backup-encrypted/
+*.mfy
+respaldo-recuperado.zip
