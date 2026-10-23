@@ -214,4 +214,5 @@ def dashboard_page(repo):
 
 
 if __name__ == "__main__":
-    dashboard_page(st.session_state._repo_actual)
+    from utils.permisos import proteger_pagina
+    dashboard_page(proteger_pagina('Dashboard',admin=True))

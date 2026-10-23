@@ -235,6 +235,18 @@ button:focus-visible,a:focus-visible,.mfy-table-wrap:focus-visible{outline:3px s
 @media(max-width:480px){.st-key-mfy_generate{right:16px;bottom:12px;width:220px;}.st-key-mfy_quote_downloads,.st-key-mfy_quote_ready{right:16px;bottom:74px;}}
 """
 
+# st.page_link reemplaza el menú nativo; estos data-testid son de Streamlit 1.65.
+ESTILOS_BASE += """
+.st-key-mfy_custom_nav [data-testid="stPageLink-NavLink"]{position:relative;display:flex;align-items:center;gap:12px;min-height:48px;padding:12px 16px;border-radius:12px;color:var(--mfy-nav-text)!important;text-decoration:none;transition:transform 200ms,background 200ms;}
+.st-key-mfy_custom_nav [data-testid="stPageLink-NavLink"] p{color:inherit!important;font-size:.9rem;}
+.st-key-mfy_custom_nav [data-testid="stIconMaterial"]{font-size:24px;color:var(--mfy-nav-icon);}
+.st-key-mfy_custom_nav [class*="st-key-mfy_nav_active_"] [data-testid="stPageLink-NavLink"]{background:var(--mfy-nav-active);color:var(--mfy-nav-active-text)!important;font-weight:700;}
+.st-key-mfy_custom_nav [class*="st-key-mfy_nav_active_"] [data-testid="stIconMaterial"]{color:var(--mfy-nav-active-icon);}
+.st-key-mfy_custom_nav [class*="st-key-mfy_nav_active_"] [data-testid="stPageLink-NavLink"]::before{content:'';position:absolute;left:0;top:10px;bottom:10px;width:4px;border-radius:4px;background:var(--mfy-nav-indicator);}
+.st-key-mfy_custom_nav [data-testid="stPageLink-NavLink"]:focus-visible{outline:3px solid var(--mfy-nav-focus);outline-offset:3px;}
+@media(hover:hover){.st-key-mfy_custom_nav [data-testid="stPageLink-NavLink"]:hover{background:var(--mfy-nav-hover);transform:translateX(3px);}}
+@media(prefers-reduced-motion:reduce){.st-key-mfy_custom_nav [data-testid="stPageLink-NavLink"]{transition:none!important;transform:none!important;}}
+"""
 _paleta_nav = {"oscuro": "dark", "claro": "light"}[TEMA_BARRA_LATERAL]
 ESTILOS_BASE += ":root{" + "".join(
     f"--mfy-nav-{token}:var(--mfy-nav-{_paleta_nav}-{token});"

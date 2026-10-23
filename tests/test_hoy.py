@@ -111,12 +111,12 @@ class HoyUITests(unittest.TestCase):
         self.assert_clean(cliente);self.assertEqual(cliente.session_state['navigation'],'Nueva solicitud')
         r.all_quotes.assert_not_called()
 
-    def test_login_redirects_to_today_even_from_an_old_dashboard_url(self):
+    def test_login_respects_requested_dashboard_url(self):
         app,repo=self.setup_app()
         app.query_params['pagina']='Dashboard'
         app.session_state['inicio_tras_login']=True
         app.run();self.assert_clean(app)
-        self.assertEqual(app.session_state['navigation'],'Hoy')
+        self.assertEqual(app.session_state['navigation'],'Dashboard')
         ir_a(app,'Dashboard');self.assert_clean(app)
         self.assertEqual(app.session_state['navigation'],'Dashboard')
 

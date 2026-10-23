@@ -231,4 +231,5 @@ def request_page(repo):
 
 
 if __name__=='__main__':
-    request_page(st.session_state._repo_actual)
+    from utils.permisos import proteger_pagina
+    request_page(proteger_pagina('Nueva solicitud'))

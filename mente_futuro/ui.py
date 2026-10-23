@@ -43,6 +43,9 @@ def logout():
         pass
     for key in list(st.session_state):
         del st.session_state[key]
+    from utils.sesion_cookie import ordenar_cookie
+    ordenar_cookie('clear')
+    st.session_state['_restauracion_intentada']=True
     st.rerun()
 
 

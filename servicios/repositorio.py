@@ -53,7 +53,9 @@ def public_client():
             raise ConfigurationError("La clave de Supabase no tiene un formato válido.") from None
         if payload.get("role") != "anon":
             raise ConfigurationError("Utiliza la clave anon o publicable, nunca service_role.")
-    return create_client(url, key, options=ClientOptions(auto_refresh_token=True, persist_session=False,postgrest_client_timeout=8))
+    # La rotación se realiza al consultar get_session en el marco de la app,
+    # para actualizar también la cookie y no dejar un refresh token antiguo.
+    return create_client(url, key, options=ClientOptions(auto_refresh_token=False, persist_session=False,postgrest_client_timeout=8))
 
 
 class Repository:

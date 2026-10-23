@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
+from streamlit.util import calc_hash
 
 import streamlit as st
 from streamlit.testing.v1 import AppTest
@@ -145,6 +146,13 @@ def paginas_registradas(app):
     return [p['page_name'] for p in app._registered_pages.values()]
 
 
+TODAS_PAGINAS=['Inicio',*PAGINAS]
+
+
+def menu_visible(app):
+    return [x.label for x in app.sidebar.get('page_link')]
+
+
 def ir_a(app, pagina):
     return app.switch_page(PAGINAS[pagina][0]).run()
 
@@ -155,8 +163,13 @@ class AppTests(unittest.TestCase):
         patcher=patch('servicios.repositorio.Repository',return_value=repo)
         patcher.start()
         self.addCleanup(patcher.stop)
+        cookies=patch('utils.sesion_cookie.puente_cookie',return_value=True)
+        cookies.start();self.addCleanup(cookies.stop)
         app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=20)
         app.session_state['auth_client']=repo.client
+        # AppTest no actualiza su hash al seguir un switch_page del marco.
+        # Las recargas reales y la raíz se verifican aparte en test_recarga.py.
+        app._page_hash=calc_hash('hoy' if owner else 'nueva-solicitud')
         return app,repo
     def assert_clean(self,app):
         self.assertEqual([e.message for e in app.exception],[])
@@ -196,7 +209,7 @@ class AppTests(unittest.TestCase):
         app,repo=self.setup_app(False)
         app.query_params['pagina']='Estado';app.session_state['pending_navigation']='Estado'
         app.run();self.assert_clean(app)
-        self.assertEqual(paginas_registradas(app),['Nueva solicitud'])
+        self.assertEqual(paginas_registradas(app),TODAS_PAGINAS)
         self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
         self.assertFalse(app.get('download_button'))
 
@@ -204,11 +217,11 @@ class AppTests(unittest.TestCase):
         app,repo=self.setup_app(False)
         app.run()
         self.assert_clean(app)
-        self.assertNotIn('Dashboard',paginas_registradas(app))
+        self.assertNotIn('Dashboard',menu_visible(app))
         self.create_request(app)
         self.assert_clean(app)
         self.assertEqual(len(repo.case_rows),1)
-        self.assertEqual(paginas_registradas(app),['Nueva solicitud'])
+        self.assertEqual(paginas_registradas(app),TODAS_PAGINAS)
         self.assertTrue(any('48 horas' in x.value for x in app.markdown))
         self.assertFalse(app.dataframe)
         self.assertFalse(any(x.label=='Emitir y guardar cotización' for x in app.button))
@@ -229,7 +242,7 @@ class AppTests(unittest.TestCase):
         app.session_state['navigation']='Casos y cotizaciones'
         app.run()
         self.assert_clean(app)
-        self.assertEqual(paginas_registradas(app),['Nueva solicitud'])
+        self.assertEqual(paginas_registradas(app),TODAS_PAGINAS)
         self.assertFalse(app.query_params)
         self.assertTrue(by_label(app.text_input,'Nombre de tu cuenta').disabled)
         self.assertTrue(by_label(app.text_input,'Correo de contacto *').disabled)
@@ -394,13 +407,13 @@ class AppTests(unittest.TestCase):
             self.assertIn(repo.profile['nombre'],content)
             self.assertIn(role,content)
             self.assertIn('Mente y Futuro · Sistema de gestión',content)
-            self.assertEqual(paginas_registradas(app),[p for p in (
-                ['Hoy','Nueva solicitud','Casos y cotizaciones','Dashboard','Estado'] if owner else ['Nueva solicitud'])])
+            self.assertEqual(paginas_registradas(app),TODAS_PAGINAS)
+            self.assertEqual(menu_visible(app),['Hoy','Nueva solicitud','Casos y cotizaciones','Dashboard'] if owner else ['Nueva solicitud'])
             self.assertEqual(app.sidebar.button[-1].label,'Cerrar sesión')
             self.assertFalse(app.radio)
             self.assertFalse(any(b.label=='Actualizar información' for b in app.button))
             for info in app._registered_pages.values():
-                self.assertEqual(info['icon'],PAGINAS[info['page_name']][2])
+                if info['page_name']!='Inicio':self.assertEqual(info['icon'],PAGINAS[info['page_name']][2])
 
     def test_case_kpis_count_real_states_and_badges(self):
         from mente_futuro.domain import STATES
@@ -464,14 +477,16 @@ class AppTests(unittest.TestCase):
         app,repo=self.setup_app(False)
         app.run()
         for page in ['Casos y cotizaciones','Dashboard']:
-            with self.assertRaises(ValueError):
-                app.switch_page(PAGINAS[page][0])
+            ir_a(app,page)
+            self.assert_clean(app)
+            self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
+            self.assertFalse(app.dataframe)
         for page_hash in private_hashes:
             app._page_hash=page_hash  # Simula un enlace directo de otra cuenta.
             app.run()
             self.assert_clean(app)
             self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
-            self.assertEqual(paginas_registradas(app),['Nueva solicitud'])
+            self.assertEqual(paginas_registradas(app),TODAS_PAGINAS)
             self.assertFalse(app.metric)
 
     def test_role_downgrade_removes_private_pages_before_loading_data(self):
@@ -486,7 +501,7 @@ class AppTests(unittest.TestCase):
         repo.profiles=Mock(side_effect=AssertionError('No debe leer otros perfiles'))
         app.run()
         self.assert_clean(app)
-        self.assertEqual(paginas_registradas(app),['Nueva solicitud'])
+        self.assertEqual(paginas_registradas(app),TODAS_PAGINAS)
         self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
         repo.cases.assert_not_called()
         repo.sales.assert_not_called()
@@ -501,7 +516,7 @@ class AppTests(unittest.TestCase):
         self.assertFalse(any(b.label in ['Actualizar','Actualizar información'] for b in app.button))
         by_label(app.button,'Cerrar sesión').click().run()
         self.assert_clean(app)
-        self.assertEqual(paginas_registradas(app),['Ingresar'])
+        self.assertEqual(paginas_registradas(app),TODAS_PAGINAS)
         self.assertFalse(app.sidebar.button)
 
     def test_failed_profile_check_removes_previous_private_navigation(self):
@@ -511,7 +526,7 @@ class AppTests(unittest.TestCase):
         app.run()
         self.assertFalse(app.exception)
         self.assertTrue(app.error)
-        self.assertEqual(paginas_registradas(app),['Ingresar'])
+        self.assertEqual(paginas_registradas(app),TODAS_PAGINAS)
         self.assertNotIn('_repo_actual',app.session_state)
         self.assertFalse(app.sidebar.button)
 

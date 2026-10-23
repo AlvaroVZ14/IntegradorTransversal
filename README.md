@@ -135,6 +135,11 @@ El inicio administrativo Hoy, las tareas accionables, los mensajes preparados y 
 
 La [guía de mantenimiento](docs/mantenimiento.md) contiene los dos workflows, SQL nuevo, secretos del repositorio privado, recuperación y pruebas. **Streamlit puede dormir a las 12 horas y Supabase pausar por baja actividad en 7 días**: estas comprobaciones no garantizan disponibilidad continua gratuita. Los workflows requieren activación y guardan únicamente respaldos cifrados en un repositorio privado; no subas CSV a uno público.
 
+La [guía de recarga y sesión](docs/recarga_y_sesion.md) explica el registro estable
+de rutas, la recuperación administrativa durante siete días, su riesgo de cookie
+sin HttpOnly y las pruebas. No requiere nuevas claves ni SQL. También documenta
+la diferencia encontrada con el supuesto formulario anónimo `?vista=solicitud`.
+
 ```text
 app.py                     Entrada, sesión y navegación
 mente_futuro/

@@ -77,4 +77,6 @@ def page(repo):
     except Exception:st.warning('No pudimos leer los registros de correos o mantenimiento.')
 
 
-if __name__=='__main__':page(st.session_state._repo_actual)
+if __name__=='__main__':
+    from utils.permisos import proteger_pagina
+    page(proteger_pagina('Estado',admin=True))

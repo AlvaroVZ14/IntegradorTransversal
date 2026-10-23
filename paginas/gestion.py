@@ -316,4 +316,5 @@ from paginas.dashboard import dashboard_page
 
 
 if __name__ == "__main__":
-    cases_page(st.session_state._repo_actual)
+    from utils.permisos import proteger_pagina
+    cases_page(proteger_pagina('Casos y cotizaciones',admin=True))

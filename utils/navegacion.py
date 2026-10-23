@@ -13,22 +13,48 @@ PAGINAS = {
 }
 
 
-def crear_paginas(perfil):
-    permitidas = allowed_pages(perfil)
-    inicio = "Hoy" if "Hoy" in permitidas else "Nueva solicitud"
-    grupos, paginas = {}, {}
-    for titulo in permitidas:
+def inicio():
+    """El marco resuelve el destino después de verificar la sesión."""
+
+
+def crear_paginas(perfil=None):
+    # Registro estable: que una URL exista NO otorga acceso a su contenido.
+    paginas={'Inicio':st.Page(inicio,title='Inicio',default=True)}
+    for titulo in PAGINAS:
         archivo, ruta, icono, grupo = PAGINAS[titulo]
-        pagina = st.Page(archivo, title=titulo, icon=icono, url_path=ruta, default=titulo == inicio)
+        pagina = st.Page(archivo, title=titulo, icon=icono, url_path=ruta)
         paginas[titulo] = pagina
-        grupos.setdefault(grupo, []).append(pagina)
-    if perfil.get('rol') == 'admin':
-        pagina = st.Page('paginas/estado.py',title='Estado',url_path='estado',
-                         icon=':material/monitor_heart:',visibility='hidden')
-        paginas['Estado'] = pagina
-        # Se registra, pero no crea un grupo ni un ítem visible en el menú.
-        grupos.setdefault('', []).append(pagina)
-    return grupos, paginas
+    return list(paginas.values()), paginas
+
+
+def resolver_ruta_desconocida():
+    """Compatibilidad acotada con Streamlit 1.65, que no tiene ruta catch-all.
+
+    Cambia SOLO la intención de ruta antes de registrar/resolver las páginas.
+    No intercepta diálogos ni autorización. También cubre rutas anidadas, que
+    st.Page no admite como alias temporal. Se verifica mediante pruebas.
+    """
+    from streamlit.runtime.scriptrunner import get_script_run_ctx
+    ctx=get_script_run_ctx()
+    if not ctx:return False
+    manager=ctx.pages_manager
+    ruta=manager.intended_page_name
+    if ruta and ruta not in {p[1] for p in PAGINAS.values()}:
+        manager.set_script_intent('','')
+        return True
+    return False
+
+
+def menu_lateral(perfil,paginas,actual):
+    grupo_anterior=None
+    with st.container(key='mfy_custom_nav'):
+        for titulo in allowed_pages(perfil):
+            archivo,ruta,icono,grupo=PAGINAS[titulo]
+            if grupo!=grupo_anterior:
+                st.markdown(f'<p class="mfy-nav-group">{grupo}</p>',unsafe_allow_html=True)
+                grupo_anterior=grupo
+            with st.container(key=('mfy_nav_active_' if actual==titulo else 'mfy_nav_item_')+ruta):
+                st.page_link(paginas[titulo],label=titulo,icon=icono,width='stretch',help='Página actual' if actual==titulo else None)
 
 
 def cerrar_menu_movil_al_navegar():
@@ -44,7 +70,7 @@ def cerrar_menu_movil_al_navegar():
         js="""
         export default function() {
           const media = window.matchMedia('(max-width: 767px)');
-          const selector = '[data-testid="stSidebarNavLink"], .st-key-mfy_single_page [data-testid="stPageLink-NavLink"]';
+          const selector = '[data-testid="stSidebarNavLink"], .st-key-mfy_single_page [data-testid="stPageLink-NavLink"], .st-key-mfy_custom_nav [data-testid="stPageLink-NavLink"]';
           const close = event => {
             if (!media.matches || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
             if (!(event.target instanceof Element) || !event.target.closest(selector)) return;

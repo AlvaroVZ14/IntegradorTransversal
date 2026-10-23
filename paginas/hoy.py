@@ -210,4 +210,6 @@ def configurar_hoy(repo,row):
         except Exception:st.warning('No pudimos guardar la configuración. Conservamos lo escrito para que reintentes.')
 
 
-if __name__=='__main__':hoy_page(st.session_state._repo_actual)
+if __name__=='__main__':
+    from utils.permisos import proteger_pagina
+    hoy_page(proteger_pagina('Hoy',admin=True))

@@ -20,4 +20,18 @@ def guard_route(profile, route):
     pages = allowed_pages(profile)
     if es_admin(profile) and route == 'Estado':
         return route
-    return route if route in pages else CLIENT_PAGE
+    return route if route in pages else 'Hoy' if es_admin(profile) else CLIENT_PAGE
+
+
+def proteger_pagina(titulo,admin=False):
+    """Defensa adicional en cada archivo de página, aunque el marco ya guarde."""
+    import streamlit as st
+    repo=st.session_state.get('_repo_actual')
+    if repo is None:
+        st.session_state['destino_tras_login']=titulo
+        from mente_futuro.ui import login
+        login();st.stop()
+    if admin and not es_admin(repo.profile):
+        st.session_state['pending_navigation']='Nueva solicitud'
+        st.switch_page('paginas/nueva_solicitud.py')
+    return repo
