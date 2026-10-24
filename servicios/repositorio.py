@@ -31,7 +31,7 @@ def escritura_confirmada(resultado):
     return resultado
 
 
-def public_client():
+def public_client(timeout=8):
     def setting(name):
         value = os.environ.get(name)
         if value:
@@ -55,7 +55,7 @@ def public_client():
             raise ConfigurationError("Utiliza la clave anon o publicable, nunca service_role.")
     # La rotación se realiza al consultar get_session en el marco de la app,
     # para actualizar también la cookie y no dejar un refresh token antiguo.
-    return create_client(url, key, options=ClientOptions(auto_refresh_token=False, persist_session=False,postgrest_client_timeout=8))
+    return create_client(url, key, options=ClientOptions(auto_refresh_token=False, persist_session=False,postgrest_client_timeout=timeout))
 
 
 class Repository:

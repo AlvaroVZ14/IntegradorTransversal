@@ -22,6 +22,13 @@ def main():
     registro,paginas=crear_paginas()
     actual=st.navigation(registro,position='hidden')
     if desconocida:st.session_state['ruta_inexistente']=True
+    if st.query_params.get('vista')=='solicitud':
+        # Canal público separado: nunca restaura ni utiliza una sesión privada.
+        from paginas.solicitud_publica import formulario_publico
+        from utils.componentes import mostrar_celebracion
+        formulario_publico()
+        mostrar_celebracion()
+        return
     cookie=cookie_inicial()
     if 'auth_client' not in st.session_state and not st.session_state.get('_restauracion_intentada'):
         st.session_state['_restauracion_intentada']=True
@@ -110,4 +117,4 @@ if __name__=='__main__':
         show_error(error,'No pudimos cargar la información. Reintenta en unos momentos.')
         if st.button('Volver al ingreso',key='recover_login'):logout()
     finally:
-        pie_portal()
+        if st.query_params.get('vista')!='solicitud':pie_portal()

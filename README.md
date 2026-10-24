@@ -2,6 +2,8 @@
 
 Aplicación Streamlit para solicitudes, casos, tarifas, cotizaciones y ventas, con Supabase Auth y PostgreSQL. Usa el logo original y los colores celeste, violeta y amarillo. No incluye marketing ni captación de clientes.
 
+**Formulario desde Instagram o el sitio:** `/?vista=solicitud` permite enviar sin cuenta. [Activación del SQL, diseño, seguridad y pruebas](docs/login_y_formulario_publico.md). Administración conserva todas sus funciones; los clientes con cuenta siguen viendo solo Nueva solicitud.
+
 ## Las tres secciones
 
 | Sección | Cliente | Dueña |
@@ -31,7 +33,7 @@ La aplicación necesita estas tablas y funciones antes de utilizar cuentas o gua
 
    Verifica que el resultado corresponde a la persona correcta. Nunca asignes el rol basándote en datos de registro elegidos por el cliente. La dueña puede actualizar la página para ver sus permisos.
 
-6. Verifica con dos cuentas de cliente que cada una vea únicamente sus solicitudes. La dueña debe ver ambas y el dashboard.
+6. Verifica con dos cuentas de cliente que solo puedan registrar una solicitud, sin consultar listados ni tablas internas. La dueña debe ver ambas solicitudes y el dashboard.
 
 **Datos anteriores:** las tablas nuevas usan el prefijo `mf_` para preservar la tabla `casos` del prototipo sin adivinar su estructura. Los registros anteriores no se importan automáticamente. Antes de publicar, revisa esa tabla en SQL Editor y restringe su acceso anónimo si contiene datos reales. La aplicación nueva no la consulta. Para trasladar registros existentes, primero se necesita conocer sus columnas y vincular cada caso a su cliente correcto.
 

@@ -143,6 +143,15 @@ def encabezado_pagina(titulo, subtitulo, etiqueta, icono, acciones=None):
                 acciones()
 
 
+def panel_marca_login():
+    with st.container(key='mfy_login_brand'):
+        st.markdown(html_contenido_encabezado('Tu próximo paso, en un solo lugar.',
+            'Conversemos sobre lo que necesita tu equipo.','BIENVENIDA',''),unsafe_allow_html=True)
+        st.markdown('''<div class="mfy-login-steps"><span><b>01</b> Cuéntanos qué necesitas</span>
+        <span><b>02</b> Revisamos tu solicitud</span>
+        <span><b>03</b> Te enviamos una propuesta a tu medida</span></div>''',unsafe_allow_html=True)
+
+
 def html_encabezado(agrupacion, desde, hasta):
     """Compatibilidad para la vista HTML del dashboard: usa el mismo contenido."""
     return '<section class="mfy-hero">'+html_contenido_encabezado(

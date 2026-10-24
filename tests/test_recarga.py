@@ -95,10 +95,12 @@ class RecargaTests(unittest.TestCase):
         self.assertFalse(any(b.label=='Ingresar a mi espacio' for b in app.button))
         self.assertFalse(app.session_state['_restauracion_intentada'])
 
-    def test_public_link_keeps_existing_login_flow_without_page_dialog(self):
+    def test_public_link_without_login_or_page_dialog(self):
         app,_=self.app()
         app.query_params['vista']='solicitud'
-        self.assertEqual(recargar(app,''),0)
+        with patch('servicios.formulario_publico.configuracion_publica',return_value={'sitio_web':'','redes':{},'correo_contacto':''}):
+            self.assertEqual(recargar(app,''),0)
         self.assertEqual(app.query_params['vista'],'solicitud')
-        self.assertEqual(app.session_state['destino_tras_login'],'Nueva solicitud')
-        self.assertTrue(any(b.label=='Ingresar a mi espacio' for b in app.button))
+        self.assertFalse(any(b.label=='Ingresar a mi espacio' for b in app.button))
+        self.assertTrue(any(b.label=='Siguiente' for b in app.button))
+        self.assertFalse(menu_visible(app));self.assertFalse(app.error);self.assertFalse(app.exception)

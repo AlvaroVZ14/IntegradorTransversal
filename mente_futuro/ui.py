@@ -6,7 +6,7 @@ from supabase_auth.errors import AuthApiError
 
 from .presentation import LOGO
 from .repository import ConfigurationError, public_client
-from utils.componentes import encabezado_pagina
+from utils.componentes import encabezado_pagina, panel_marca_login
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +55,13 @@ def header(title, subtitle, section):
 
 
 def login():
+    with st.container(key='mfy_login_layout'):
+        marca,acceso=st.columns([1.05,1],gap='large')
+        with marca:panel_marca_login()
+        with acceso:_tarjeta_login()
+
+
+def _tarjeta_login():
     with st.container(key="mfy_login"):
         st.image(str(LOGO), width="stretch")
         st.title("Te damos la bienvenida")
@@ -102,6 +109,3 @@ def login():
                     except Exception as error:
                         show_error(error, "No se pudo completar el registro. Revisa los datos o intenta más tarde.")
         st.markdown('<div class="note">Desde tu cuenta puedes enviar una solicitud. Revisaremos tus necesidades y te contactaremos para preparar una propuesta a tu medida.</div>', unsafe_allow_html=True)
-    st.markdown('''<div class="mfy-login-steps"><span><b>01</b> Cuéntanos qué necesitas</span>
-    <span><b>02</b> Revisamos tu solicitud</span>
-    <span><b>03</b> Te enviamos una propuesta a tu medida</span></div>''', unsafe_allow_html=True)
