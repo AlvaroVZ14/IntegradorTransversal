@@ -10,11 +10,12 @@ from mente_futuro.ui import flash,show_error
 from servicios.hoy import configuracion_hoy,pendientes,saludo,mensaje_listo,CHILE
 from servicios.envio_cotizacion import enlace_whatsapp
 from utils.permisos import require_admin
-from utils.componentes import encabezado_pagina,tarjeta_kpi
+from utils.componentes import encabezado_pagina,tarjeta_kpi,todo_al_dia
 from utils.mensaje_listo import copiar_mensaje
 from utils.validaciones import validar_campo
 from servicios.en_vivo import cargar, carga_inicial, estado
-from utils.en_vivo import indicador
+from utils.en_vivo import indicador, guardar_metricas
+from utils.metricas_visuales import ingresos_seis_meses
 
 
 def abrir_caso(caso,tab='datos'):
@@ -110,8 +111,8 @@ def _contenido(repo, pausado=False):
     else:
         with carga_inicial('hoy', 'Revisando tus pendientes…'):
             lectura=cargar(repo,'hoy')
-    indicador('hoy', publicar=True, pausado=pausado)
     if 'datos' not in lectura:
+        indicador('hoy', publicar=True, pausado=pausado)
         st.info('Aún no pudimos conectar. Tus pendientes aparecerán cuando vuelva la conexión.')
         return
     datos=lectura['datos']
@@ -119,10 +120,21 @@ def _contenido(repo, pausado=False):
     config=configuracion_hoy(datos['configuracion'])
     tareas=pendientes(casos,cotizaciones,ventas,eventos,envios,config,ahora)
     total=sum(len(v) for v in tareas.values())
+    guardar_metricas('hoy',[('Por cotizar',len(tareas['solicitudes'])),('Pagos por registrar',len(tareas['pagos'])),('Acciones pendientes',total)])
+    indicador('hoy', publicar=True, pausado=pausado)
+    grupos_kpi={'Acciones pendientes':[x for grupo in tareas.values() for x in grupo],
+                'Por cotizar':tareas['solicitudes'],'Pagos por registrar':tareas['pagos']}
     columnas=st.columns(3)
     for columna,(label,valor,icono,tono) in zip(columnas,[('Acciones pendientes',total,'◷','azul'),('Por cotizar',len(tareas['solicitudes']),'✧','morado'),('Pagos por registrar',len(tareas['pagos']),'$','amarillo')]):
-        with columna:tarjeta_kpi(label,valor,icon=icono,tone=tono,key='hoy_'+label)
-    if not total:st.success('Todo al día. Buen trabajo')
+        puntos,meses=ingresos_seis_meses([i['caso'] for i in grupos_kpi[label]],ahora.date())
+        contexto={'Acciones pendientes':f'{valor} {"acción" if valor==1 else "acciones"} para avanzar hoy',
+                  'Por cotizar':f'{valor} {"solicitud esperando" if valor==1 else "solicitudes esperando"} cotización',
+                  'Pagos por registrar':f'{valor} {"venta" if valor==1 else "ventas"} con pago por completar'}[label]
+        with columna:tarjeta_kpi(label,valor,icon=icono,tone=tono,key='hoy_'+label,caption=contexto,
+                                serie=puntos,etiquetas=meses,contexto_serie='Pendientes actuales, por mes de ingreso')
+    if not total:
+        st.success('Todo al día. Buen trabajo')
+        todo_al_dia()
     grupos=[('solicitudes','Solicitudes sin cotizar'),('seguimientos','Cotizaciones sin respuesta'),('datos','Faltan datos'),
             ('pagos','Ventas con pago pendiente o anticipo'),('cierres','Casos que se pueden cerrar'),('correos','Correos por revisar')]
     for clave,titulo in grupos:
@@ -192,7 +204,7 @@ def hoy_page(repo):
     require_admin(repo)
     ahora=datetime.now(CHILE)
     nombre=((repo.profile.get('nombre') or '').split() or ['Administración'])[0]
-    encabezado_pagina(f'{saludo(ahora.hour)}, {nombre}',f'{ahora:%d/%m/%Y} · Tus próximos pasos, en un solo lugar.',
+    encabezado_pagina(f'{saludo(ahora.hour)}, {nombre}',f'{ahora:%d/%m/%Y · %H:%M} · Tus próximos pasos, en un solo lugar.',
                       'HOY','☀',acciones=lambda:indicador('hoy'))
     if st.session_state.get('hoy_mensaje') or st.session_state.get('hoy_post_cierre'):
         # Conserva las tarjetas mientras se edita el mensaje, sin programar lecturas.

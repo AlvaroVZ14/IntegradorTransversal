@@ -91,12 +91,16 @@ def main():
         menu_lateral(repo.profile,paginas,segura)
         with st.container(key='mfy_sidebar_bottom'):
             identidad_usuario(repo.profile.get('nombre'),repo.is_owner)
+            from utils.en_vivo import indicador
+            indicador({'Hoy':'hoy','Dashboard':'dashboard','Casos y cotizaciones':'casos'}.get(segura,'solicitud'),lateral=True)
             if st.button('Cerrar sesión',key='logout',width='stretch',icon=':material/logout:'):logout()
     cerrar_menu_movil_al_navegar()
     limpiar_borrador_al_salir(repo.user.id)
     mantener_sesion_activa()
     if 'notice' in st.session_state:st.success(st.session_state.pop('notice'))
     actual.run()
+    from utils.componentes import mostrar_celebracion
+    mostrar_celebracion()
 
 
 if __name__=='__main__':

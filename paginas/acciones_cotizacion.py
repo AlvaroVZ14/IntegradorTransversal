@@ -114,6 +114,9 @@ def dialogo_envio(repo,q):
 def _decidir(repo,caso,q,datos,op):
     resultado=repo.decide_quote(caso,q,datos,op)
     evento=resultado['evento']
+    if datos['accion']=='vender':
+        from utils.componentes import preparar_celebracion
+        preparar_celebracion('venta:'+str(evento['id']),'¡Venta registrada! Un nuevo paso para tu negocio.')
     _cerrar_dialogo()
     st.session_state.pop('cotizacion_lista',None)
     if datos['accion'] in ('aceptar','vender'):

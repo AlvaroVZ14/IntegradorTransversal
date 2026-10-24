@@ -28,7 +28,7 @@ def ventas_por_periodo(serie, reduced_motion=False):
         line=dict(color=AMARILLO,width=2,dash="dot"),
         hovertemplate=f"Promedio por período: {money(promedio)}<extra></extra>"))
     fig.add_trace(go.Scatter(x=[mejor],y=[valores[mejor]],name="Mejor período",mode="markers",
-        marker=dict(color=AMARILLO,size=13,line=dict(color="#8A6A00",width=1)),
+        marker=dict(color=AMARILLO,size=16,symbol='star',line=dict(color="#8A6A00",width=1)),
         hovertemplate=f"Mejor período: {escape(labels[mejor])}<br>{money(valores[mejor])}<extra></extra>"))
     fig.add_annotation(x=mejor,y=valores[mejor],text=f"Mejor: {money(valores[mejor])}",showarrow=True,arrowhead=0,
                        ax=0,ay=-30,bgcolor="#FFF6CC",borderpad=5,font=dict(color="#705800",size=11))
@@ -61,7 +61,7 @@ def dona(labels, values, centro, *, colores=None, moneda=False, reduced_motion=F
     hover = "%{label}<br>" + ("%{customdata}" if moneda else "%{value:d} solicitudes") + " · %{percent:.1%}<extra></extra>"
     fig = go.Figure(go.Pie(labels=labels,values=valores,hole=.7,sort=False,
         marker=dict(colors=colores or PALETA,line=dict(color="white",width=3)),
-        textinfo="percent",textposition="inside",textfont=dict(size=12),
+        textinfo="percent",textposition="inside",textfont=dict(size=12,color='#0B2545'),pull=.015,
         customdata=[money(v) if moneda else str(v) for v in valores],hovertemplate=hover))
     total = money(sum(valores)) if moneda else f"{sum(valores):,.0f}".replace(",", ".")
     fig.add_annotation(text=f"<b>{total}</b>",x=.5,y=.55,showarrow=False,font=dict(size=22))

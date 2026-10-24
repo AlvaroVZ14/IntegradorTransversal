@@ -16,7 +16,8 @@ from utils.graficos_dashboard import (barras_horizontales, distribucion, embudo_
 from utils.estilos import AZUL
 from mente_futuro.ui import show_error, logout
 from servicios.en_vivo import carga_inicial, estado
-from utils.en_vivo import indicador
+from utils.en_vivo import indicador, guardar_metricas
+from utils.metricas_visuales import contexto_cohortes
 
 
 def _normalizar():
@@ -52,7 +53,7 @@ def filtros():
     mobile = es_pantalla_movil()
     container = st.expander("Filtros", expanded=False, key="dashboard_filters") if mobile else st.container(key="dashboard_filters")
     with container:
-        columns = [st.container() for _ in range(7)] if mobile else st.columns([1.1, 1.5, 1.05, 1.05, 1.5, 1.5, .7], gap="small")
+        columns = [st.container() for _ in range(7)] if mobile else st.columns([1.2, 1.6, 1.1, 1.1, 1.5, 1.5, 1.05], gap="small")
         columns[0].selectbox("Agrupar por", AGRUPACIONES, key="dash_agrupacion", on_change=_normalizar)
         columns[1].selectbox("Rango rápido", RANGOS, key="dash_rango", on_change=_cambiar_rapido)
         columns[2].date_input("Desde", key="dash_desde", format="DD/MM/YYYY", on_change=_cambiar_fecha)
@@ -86,7 +87,7 @@ def _delta(data, key):
         return None
     variation = data["variations"][key]
     if variation is None:
-        return "Sin base anterior" if previous==0 and actual>0 else None
+        return "Sin comparación previa" if previous==0 and actual>0 else None
     return f"{variation:+.1f}%".replace(".", ",")
 
 
@@ -106,12 +107,14 @@ def _contenido_dashboard(repo, filtros_activos):
     with carga_inicial('dashboard', 'Preparando tu tablero…'):
         from servicios.en_vivo import cargar
         lectura = cargar(repo, 'dashboard')
-    indicador('dashboard', publicar=True)
     if 'datos' not in lectura:
+        indicador('dashboard', publicar=True)
         st.info('Aún no pudimos conectar. La información aparecerá cuando vuelva la conexión.')
         return
     cases, sales = lectura['datos']['casos'], lectura['datos']['ventas']
     data = datos_dashboard(cases, sales, start, end, grouping, service, topic)
+    guardar_metricas('dashboard',[('Ventas del período',money(data['total'])),('Nuevas solicitudes',data['requests_count'])])
+    indicador('dashboard', publicar=True)
     reduced = repetida or st.session_state.get("dashboard_reduced_motion",False)
     previous_start, previous_end = data["previous_range"]
     st.caption(f"Comparado con {previous_start:%d/%m/%Y} – {previous_end:%d/%m/%Y}", help=
@@ -129,12 +132,23 @@ def _contenido_dashboard(repo, filtros_activos):
         ("Solicitudes que se vendieron",f"{conversion:.1f}%".replace(".",",") if conversion is not None else "—","conversion","◎","morado","Solicitudes creadas en el rango que tienen venta no anulada hasta su fecha final.",conversion_text),
         ("Ventas con pago pendiente",money(data["pending_payment"]),"pending_payment","◷","amarillo","Valor completo de las ventas no pagadas totalmente, incluidas las que tienen abonos; no es el saldo exacto por cobrar.",None),
     ]
+    serie=data['series'].tail(6)
+    tendencias={'total':serie.total.tolist(),'sales_count':serie.cantidad.tolist(),
+                'requests_count':serie.solicitudes.tolist(),
+                'average':[t/n if n else None for t,n in zip(serie.total,serie.cantidad)]}
+    tendencias.update(contexto_cohortes(data,sales,end))
+    contexto={'total':'Total vendido por período','sales_count':'Ventas registradas por período',
+              'requests_count':'Solicitudes recibidas por período','average':'Promedio de ventas por período',
+              'conversion':'Solicitudes de cada período vendidas al fin del rango',
+              'pending_payment':'Ventas actuales por cobrar, por fecha de venta'}
     for offset in [0,3]:
         for column,card in zip(st.columns(3),cards[offset:offset+3]):
             label,value,key,icon,tone,help_text,caption = card
             with column:
                 tarjeta_kpi(label,value,key=key,icon=icon,tone=tone,delta=_delta(data,key),help=help_text,
-                            caption=caption,inverse=key=="pending_payment")
+                            caption=caption,inverse=key=="pending_payment",serie=tendencias.get(key),
+                            etiquetas=serie.periodo.tolist(),contexto_serie=contexto.get(key),
+                            formato_serie='moneda' if key in ('total','average','pending_payment') else 'porcentaje' if key=='conversion' else 'entero')
     a,b = st.columns(2)
     with a:
         with tarjeta_grafico("Ventas por período","Total vendido, promedio y mejor período · CLP","ventas"):
@@ -148,7 +162,8 @@ def _contenido_dashboard(repo, filtros_activos):
         with tarjeta_grafico("Temáticas más solicitadas","Las 5 principales y otras · porcentaje de solicitudes","tematicas"):
             _mostrar(tematicas_dona(data["topics"],reduced),"plot_temas")
     with b:
-        with tarjeta_grafico("Embudo por estado del caso","Distribución actual de casos; no representa transiciones históricas","embudo"):
+        with tarjeta_grafico("Embudo por estado del caso","En qué etapa están tus casos","embudo",
+                            help="Distribución actual de casos; no representa transiciones históricas."):
             leyenda_estados()
             _mostrar(embudo_estados(data["states"],reduced),"plot_embudo","Aún no hay casos en estas etapas del período.")
             outside = data["states"][~data["states"].estado.isin(["Solicitud","Cotizada","Aceptada","En seguimiento","Cerrada"])]
@@ -190,7 +205,7 @@ def _contenido_dashboard(repo, filtros_activos):
     for column in ["Inicio","Fin"]:
         export[column] = pd.to_datetime(export[column]).dt.strftime("%d/%m/%Y")
     st.download_button("Exportar resumen por período",csv_bytes(export),"resumen-por-periodo.csv","text/csv")
-    st.caption("CLP · Ventas por fecha de aceptación · Solicitudes en hora de Chile · Anuladas excluidas.")
+    st.caption("Montos en pesos chilenos",help="Ventas por fecha de aceptación. Solicitudes en hora de Chile. Ventas anuladas excluidas.")
 
 
 @st.fragment(run_every="60s")

@@ -8,7 +8,7 @@ def _crear_viewport():
         html="<span aria-hidden='true'></span>",
         js="""
         export default function({data, setStateValue}) {
-          const media = window.matchMedia('(max-width: 767px)');
+          const media = window.matchMedia('(max-width: 1023px)');
           const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
           let last = data.mobile;
           let lastMotion = data.reduced;

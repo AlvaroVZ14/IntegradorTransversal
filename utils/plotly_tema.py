@@ -12,14 +12,16 @@ TEMA = go.layout.Template(layout=dict(
     xaxis=dict(showgrid=False, zeroline=False, tickfont=dict(color=SECUNDARIO), automargin=True),
     yaxis=dict(gridcolor="rgba(91,107,130,.08)", zeroline=False, tickfont=dict(color=SECUNDARIO), automargin=True),
     legend=dict(orientation="h", y=-.18, x=0, font=dict(size=11)),
-    transition=dict(duration=400,easing="cubic-in-out"),
+    transition=dict(duration=0),
+    barcornerradius=7,
 ))
 pio.templates["mente_futuro"] = TEMA
 
 
 def aplicar_tema(fig, reduced_motion=False):
     fig.update_layout(template="mente_futuro", height=320,
-                      transition=dict(duration=0 if reduced_motion else 400))
+                      paper_bgcolor='rgba(0,0,0,0)',plot_bgcolor='rgba(0,0,0,0)',
+                      transition=dict(duration=0))
     return fig
 
 

@@ -222,6 +222,8 @@ def request_page(repo):
                 flash(f'Solicitud {code(result)} guardada.')
         else:
             st.session_state.request_receipt=result['codigo']
+            from utils.componentes import preparar_celebracion
+            preparar_celebracion('solicitud:'+str(result['codigo']),'¡Solicitud enviada! Pronto nos pondremos en contacto.')
             st.rerun()
     except Exception as error:
         if repo.is_owner and getattr(error,'code','') in ('PGRST204','42703'):

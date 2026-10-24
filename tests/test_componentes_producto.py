@@ -29,6 +29,8 @@ class SeguridadPresentacionTests(unittest.TestCase):
                                       '<b>solicitudes</b>', '<svg onload=alert(1)>')
         self.assertNotIn('<script>',html)
         self.assertNotIn('<img',html)
-        self.assertNotIn('<svg',html)
+        self.assertNotIn('onload=',html)
+        self.assertNotIn('alert(1)',html)
+        self.assertEqual(html.count('<svg'),1)  # Solo el SVG fijo de la marca.
         self.assertIn('&lt;script&gt;titulo&lt;/script&gt;',html)
         self.assertIn('aria-hidden="true"',html)

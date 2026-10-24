@@ -14,7 +14,8 @@ from utils.componentes import (badge_estado, leyenda_estados, tabla_registros, e
                                tarjeta_kpi, titulo_seccion, cargando_datos)
 from servicios.lecturas_locales import leer_con_respaldo
 from servicios.en_vivo import cargar, carga_inicial
-from utils.en_vivo import indicador as indicador_en_vivo
+from utils.en_vivo import indicador as indicador_en_vivo, guardar_metricas
+from utils.metricas_visuales import ingresos_seis_meses
 
 
 def _lectura(repo,clave,consulta):
@@ -182,6 +183,8 @@ def sale_form(repo, case, quotes):
         else:
             try:
                 venta=repo.record_sale(case,quote,sale_date,payment)
+                from utils.componentes import preparar_celebracion
+                preparar_celebracion('venta:'+str(venta['id']),'¡Venta registrada! Un nuevo paso para tu negocio.')
                 if venta and venta.get("caso_version_aceptada") and venta.get("estado_caso_anterior"):
                     st.session_state.deshacer_venta={"id":venta["id"],"caso_id":case["id"],
                         "version":venta["caso_version_aceptada"],
@@ -205,11 +208,16 @@ def _listado_casos(repo):
     require_admin(repo)
     with carga_inicial('casos', 'Buscando tus casos…'):
         lectura = cargar(repo, 'casos')
-    indicador_en_vivo('casos', publicar=True, pausado=bool(st.session_state.get('caso_abierto')))
     if 'datos' not in lectura:
+        indicador_en_vivo('casos', publicar=True, pausado=bool(st.session_state.get('caso_abierto')))
         st.info('Aún no pudimos conectar. El listado aparecerá cuando vuelva la conexión.')
         return
     cases = lectura['datos']['casos']
+    etapa=st.session_state.get('casos_estado_filtro','Todos los estados')
+    resumen=(f'{len(set(etiqueta_estado(c["estado"]) for c in cases))} etapas con casos' if etapa=='Todos los estados'
+             else f'{etiqueta_estado(etapa)} · {sum(c["estado"]==etapa for c in cases)}')
+    guardar_metricas('casos',[('Casos totales',len(cases)),('Por etapa',resumen)])
+    indicador_en_vivo('casos', publicar=True, pausado=bool(st.session_state.get('caso_abierto')))
     indicadores = [
         ("Casos registrados",len(cases),"▤","azul",None,"casos_total"),
         ("Por revisar",sum(x["estado"] in ("Solicitud","En revisión") for x in cases),"◷","morado","Solicitudes nuevas y solicitudes en revisión. No incluye casos ya cotizados.","casos_revisar"),
@@ -217,8 +225,12 @@ def _listado_casos(repo):
     ]
     for columna, indicador in zip(st.columns(3), indicadores):
         label,value,icon,tone,ayuda,key = indicador
+        filas=cases if key=='casos_total' else [c for c in cases if c['estado'] in
+            (('Solicitud','En revisión') if key=='casos_revisar' else ('Vendido','En ejecución'))]
+        puntos,meses=ingresos_seis_meses(filas)
         with columna:
-            tarjeta_kpi(label,value,icon=icon,tone=tone,help=ayuda,key=key)
+            tarjeta_kpi(label,value,icon=icon,tone=tone,help=ayuda,key=key,serie=puntos,etiquetas=meses,
+                        contexto_serie='Casos actuales, por mes de ingreso')
     st.write("")
     a,b = st.columns([2,1])
     search = a.text_input("Buscar un caso",placeholder="Nombre, servicio o número de caso",label_visibility="collapsed",key='casos_busqueda')
