@@ -38,9 +38,10 @@ try{
   await assert.rejects(enviar(randomUUID(),randomUUID(),mal));
  }
  await assert.rejects(enviar(randomUUID(),randomUUID(),datos,'bot'));
- for(const tabla of ['mf_casos','mf_cotizaciones','mf_tarifas','mf_ventas','mf_configuracion','mf_plantillas_programa','mf_historial','mf_clientes']){
+ for(const tabla of ['mf_casos','mf_cotizaciones','mf_tarifas','mf_ventas','mf_configuracion',
+  'mf_plantillas_programa','mf_eventos_caso','mf_borradores_cotizacion','mf_envios_cotizacion','mf_mantenimiento','mf_perfiles']){
   try{assert.equal((await db.query('select * from '+tabla)).rows.length,0,tabla);}
-  catch(e){if(e.code!=='42501' && e.code!=='42P01')throw e;}
+  catch(e){if(e.code!=='42501')throw e;}
  }
  await assert.rejects(db.query('select * from mf_seguridad.recibos_publicos'));
  await assert.rejects(db.query(`insert into mf_casos(cliente) values('Intruso')`));
