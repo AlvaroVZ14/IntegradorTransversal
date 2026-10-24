@@ -40,8 +40,10 @@ class ServicioPublicoTests(TestCase):
 
 class PublicoUITests(TestCase):
     def setUp(self):
-        p=patch.object(servicio,'configuracion_publica',return_value=VACIA);p.start();self.addCleanup(p.stop)
-        self.envio=patch.object(servicio,'enviar',return_value='MF-2026-0042').start()
+        from mente_futuro.domain import SERVICES,TOPICS
+        p=patch('paginas.formulario.configuracion_publica',return_value=VACIA);p.start();self.addCleanup(p.stop)
+        p=patch('servicios.formulario.catalogo_publico',return_value=dict(servicios=SERVICES,tematicas=TOPICS,version=2,pendiente=False));p.start();self.addCleanup(p.stop)
+        self.envio=patch('servicios.formulario.guardar',return_value=dict(codigo='MF-2026-0042',caso=None)).start()
         self.addCleanup(patch.stopall)
         self.app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=30)
         self.app.query_params['vista']='solicitud';self.app.run()
@@ -54,11 +56,13 @@ class PublicoUITests(TestCase):
     def paso3(self):
         self.contacto();self.app.button(key='publico_siguiente').click().run()
 
+    def borrador(self):return self.app.session_state['formularios']['publico:visitante']
+
     def test_publico_no_consulta_auth_ni_muestra_menu_y_conserva_al_volver(self):
         self.assertFalse(self.app.sidebar.children);self.assertNotIn('auth_client',self.app.session_state)
         self.contacto()
-        self.assertEqual(self.app.session_state['publico_borrador']['step'],2)
-        self.assertEqual(self.app.number_input(key='publico_horas').value,1.0)
+        self.assertEqual(self.borrador()['step'],2)
+        self.assertEqual(self.borrador()['values']['horas'],1.0)
         self.app.button(key='publico_atras').click().run()
         self.assertEqual(self.app.text_input(key='publico_contacto').value,'Camila Ficticia')
         self.assertEqual(self.app.text_input(key='publico_email').value,'camila@example.test')
@@ -67,14 +71,14 @@ class PublicoUITests(TestCase):
     def test_rut_invalido_impide_avanzar_y_envio_sin_consentimiento_no_escribe(self):
         self.app.text_input(key='publico_rut').set_value('12.345.678-9')
         self.contacto()
-        self.assertEqual(self.app.session_state['publico_borrador']['step'],1)
+        self.assertEqual(self.borrador()['step'],1)
         self.assertTrue(any('dígito verificador' in m.value for m in self.app.markdown))
         self.app.text_input(key='publico_rut').set_value('12.345.678-5')
         self.app.button(key='publico_siguiente').click().run()
         self.app.button(key='publico_siguiente').click().run()
         self.app.button(key='publico_siguiente').click().run()
         self.envio.assert_not_called()
-        self.assertTrue(self.app.session_state['publico_error_consentimiento'])
+        self.assertTrue(self.borrador()['error_consentimiento'])
 
     def test_envio_confirmado_recibo_sin_datos_privados_y_no_reenvia(self):
         self.paso3()
@@ -86,12 +90,12 @@ class PublicoUITests(TestCase):
         self.app.run();self.envio.assert_called_once()
 
     def test_red_fallida_conserva_borrador_id_y_reintento(self):
-        self.envio.side_effect=[ConnectionError('fallo ficticio'),'MF-2026-0042']
-        self.paso3();ident=self.app.session_state['publico_borrador']['id']
+        self.envio.side_effect=[ConnectionError('fallo ficticio'),dict(codigo='MF-2026-0042',caso=None)]
+        self.paso3();ident=self.borrador()['id']
         self.app.checkbox(key='publico_consentimiento').check()
         self.app.button(key='publico_siguiente').click().run()
-        self.assertTrue(self.app.warning)
-        self.assertEqual(self.app.session_state['publico_borrador']['id'],ident)
-        self.assertEqual(self.app.session_state['publico_borrador']['values']['email'],'camila@example.test')
+        self.assertTrue(self.app.error)
+        self.assertEqual(self.borrador()['id'],ident)
+        self.assertEqual(self.borrador()['values']['email'],'camila@example.test')
         self.app.button(key='publico_siguiente').click().run()
-        self.assertEqual(self.app.session_state['publico_recibo']['codigo'],'MF-2026-0042')
+        self.assertEqual(self.app.session_state['formulario_recibos']['publico:visitante']['codigo'],'MF-2026-0042')

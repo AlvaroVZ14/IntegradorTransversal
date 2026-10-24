@@ -32,7 +32,7 @@ def configuracion_visible(datos):
     datos=datos if isinstance(datos,dict) else {}
     redes=datos.get('redes') if isinstance(datos.get('redes'),dict) else {}
     correo=datos.get('correo_contacto','')
-    return dict(sitio_web=url_publica(datos.get('sitio_web')),
+    return dict(sitio_web=url_publica(datos.get('sitio_web')),politica_privacidad=url_publica(datos.get('politica_privacidad')),
                 redes={k:url_publica(redes.get(k)) for k in ('facebook','instagram')},
                 correo_contacto=correo.strip() if isinstance(correo,str) and correo.strip() and not validar_campo('email',correo.strip()) else '')
 

@@ -23,7 +23,7 @@ try{
  await db.exec(`update mf_configuracion set datos=datos||'{"sitio_web":"https://empresa.example.test","redes":{"instagram":"https://social.example.test/perfil"},"correo_contacto":"contacto@example.test","smtp_password":"privado-ficticio"}'::jsonb where id='general'`);
  await as('','anon');
  const config=(await db.query('select mf_configuracion_publica() r')).rows[0].r;
- assert.deepEqual(Object.keys(config).sort(),['correo_contacto','redes','sitio_web']);
+ assert.deepEqual(Object.keys(config).sort(),['correo_contacto','politica_privacidad','redes','sitio_web']);
  assert.equal(config.redes.facebook,'');assert.equal(config.correo_contacto,'contacto@example.test');
  assert.ok(!JSON.stringify(config).includes('privado-ficticio'));
  const id=randomUUID(),token=randomUUID();

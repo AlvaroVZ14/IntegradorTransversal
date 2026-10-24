@@ -47,6 +47,8 @@ class FakeRepository:
         self.event_rows=[]
         self.email_rows=[]
         self.settings_row=dict(version=1,datos=dict(emisor=dict(razon_social='Consultora Horizonte SpA',rut='12.345.678-5',giro='Capacitación',direccion='Calle Ficticia 123',comuna='Antofagasta',correo='emisor@example.test',telefono='+56 9 1234 5678',representante='Camila Rojas',cuenta_bancaria='Banco ficticio · Cuenta 123'),reserva_pct=30.0,remuneracion_pct=70.0))
+    def create_request_legacy(self,data,request_id):return self.create_request(data,request_id)
+    def request_notifications(self):return []
     def owner_only(self):
         if not self.is_owner: raise PermissionError('Solo dueña')
     def cases(self): return deepcopy(self.case_rows)
@@ -64,6 +66,9 @@ class FakeRepository:
     def create_request(self,data,request_id):
         if self.fail_write: raise ConnectionError('Simulación de fallo')
         row=dict(data,id=request_id,numero=len(self.case_rows)+1,created_at=today().isoformat()+'T12:00:00Z',estado='Solicitud',version=1,fecha_realizacion=None)
+        if self.is_owner:
+            row['datos_pendientes']=[k for k in ('cliente','contacto','email','servicio','tematica','modalidad','participantes','horas') if row.get(k) is None or row.get(k)=='']
+            row['datos_incompletos']=bool(row['datos_pendientes'])
         self.case_rows.append(row)
         return row if self.is_owner else {'codigo': 'MF-2026-0001'}
     def issue_quote(self,case,data,operation_id):
@@ -160,6 +165,11 @@ def menu_visible(app):
     return [x.label for x in app.sidebar.get('page_link')]
 
 
+def paso(app,n):
+    app.get('button_group')[0].set_value(n).run()
+    return app
+
+
 def ir_a(app, pagina):
     return app.switch_page(PAGINAS[pagina][0]).run()
 
@@ -172,6 +182,10 @@ class AppTests(unittest.TestCase):
         self.addCleanup(patcher.stop)
         cookies=patch('utils.sesion_cookie.puente_cookie',return_value=True)
         cookies.start();self.addCleanup(cookies.stop)
+        from mente_futuro.domain import SERVICES,TOPICS
+        from servicios.formulario_publico import configuracion_visible
+        for target,value in [('servicios.formulario.catalogo_publico',dict(servicios=SERVICES,tematicas=TOPICS,version=2,pendiente=False)),('paginas.formulario.configuracion_publica',configuracion_visible({}))]:
+            p=patch(target,return_value=value);p.start();self.addCleanup(p.stop)
         app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=20)
         app.session_state['auth_client']=repo.client
         # AppTest no actualiza su hash al seguir un switch_page del marco.
@@ -183,20 +197,24 @@ class AppTests(unittest.TestCase):
         self.assertEqual([e.value for e in app.error],[])
     def create_request(self,app):
         ir_a(app,'Nueva solicitud')
-        if any(x.label=='Nombre o empresa *' for x in app.text_input):
-            by_label(app.text_input,'Nombre o empresa *').set_value('Fundación Horizonte Norte')
-            by_label(app.text_input,'Persona de contacto *').set_value('Valentina Soto')
-            by_label(app.text_input,'Correo de contacto *').set_value('cliente@example.cl')
+        interno=not by_label(app.text_input,'Nombre y apellido').disabled
+        if interno:
+            by_label(app.text_input,'Empresa o institución').set_value('Fundación Horizonte Norte')
+            by_label(app.text_input,'Nombre y apellido').set_value('Valentina Soto')
+            by_label(app.text_input,'Correo electrónico').set_value('cliente@example.cl')
+            app.run()
+            paso(app,3)
         else:
-            by_label(app.checkbox,'Autorizo a Mente y Futuro a utilizar mis datos para gestionar esta solicitud y contactarme. *').check()
-        by_label(app.text_area,'¿Qué te gustaría lograr?').set_value('Desarrollar habilidades de liderazgo.')
-        by_label(app.button,'Enviar solicitud').click().run()
-        # AppTest conserva el hash elegido antes de un st.switch_page interno.
-        # Sincroniza la siguiente interaccion con el destino de la redireccion.
+            by_label(app.button,'Siguiente').click().run()
+            by_label(app.button,'Siguiente').click().run()
+            by_label(app.checkbox,'Autorizo a Mente y Futuro a utilizar mis datos para gestionar esta solicitud y contactarme.').check()
+        by_label(app.text_area,'Comentarios y objetivos (opcional)').set_value('Desarrollar habilidades de liderazgo.')
+        by_label(app.button,'Guardar y cotizar ahora' if interno else 'Enviar solicitud').click().run()
         app.switch_page(PAGINAS[app.session_state['navigation']][0])
 
     def test_login_and_empty_validation(self):
-        app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=20).run()
+        app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=20)
+        app.query_params['vista']='acceso';app.run()
         self.assert_clean(app)
         by_label(app.button,'Ingresar a mi espacio').click().run()
         self.assertIn('Ingresa tu correo',app.error[0].value)
@@ -251,10 +269,11 @@ class AppTests(unittest.TestCase):
         self.assert_clean(app)
         self.assertEqual(paginas_registradas(app),TODAS_PAGINAS)
         self.assertFalse(app.query_params)
-        self.assertTrue(by_label(app.text_input,'Nombre de tu cuenta').disabled)
-        self.assertTrue(by_label(app.text_input,'Correo de contacto *').disabled)
-        self.assertTrue(by_label(app.text_input,'Persona de contacto *').disabled)
+        self.assertTrue(by_label(app.text_input,'Correo electrónico').disabled)
+        self.assertTrue(by_label(app.text_input,'Nombre y apellido').disabled)
         self.assertFalse(any(x.label=='Vincular a una cuenta de cliente' for x in app.selectbox))
+        by_label(app.button,'Siguiente').click().run()
+        by_label(app.button,'Siguiente').click().run()
         by_label(app.button,'Enviar solicitud').click().run()
         self.assertEqual(repo.case_rows,[])
         self.assertTrue(any('autorizar' in e.value for e in app.error))
@@ -269,12 +288,14 @@ class AppTests(unittest.TestCase):
         app,repo=self.setup_app(False)
         app.run()
         self.create_request(app)
-        self.assertTrue(app.success)
+        self.assertTrue(any('48 horas' in m.value for m in app.markdown))
         self.assertFalse(app.dataframe)
         self.assertEqual(repo.case_rows[0]['contacto'],repo.profile['nombre'])
         self.assertEqual(repo.case_rows[0]['email'],repo.user.email)
         by_label(app.button,'Enviar otra solicitud').click().run()
         self.assert_clean(app)
+        by_label(app.button,'Siguiente').click().run()
+        by_label(app.button,'Siguiente').click().run()
         self.assertFalse(app.checkbox[0].value)
 
     def test_private_pages_reject_client_before_loading_data(self):
@@ -284,7 +305,8 @@ class AppTests(unittest.TestCase):
             with self.assertRaises(PermissionError): page(repo)
 
     def test_login_copy_matches_request_only_portal(self):
-        app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=20).run()
+        app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=20)
+        app.query_params['vista']='acceso';app.run()
         content=' '.join(x.value for x in app.markdown)
         self.assertIn('Revisamos tu solicitud',content)
         self.assertIn('Te enviamos una propuesta a tu medida',content)
@@ -404,7 +426,7 @@ class AppTests(unittest.TestCase):
         by_label(app.button,'Cerrar sesión').click().run()
         self.assert_clean(app)
         self.assertNotIn('auth_client',app.session_state)
-        self.assertTrue(any(x.label=='Ingresar a mi espacio' for x in app.button))
+        self.assertTrue(any(x.label=='Siguiente' for x in app.button))
 
     def test_product_navigation_identity_and_footer(self):
         for owner,role in [(True,'Administración'),(False,'Cliente')]:
@@ -413,11 +435,12 @@ class AppTests(unittest.TestCase):
             self.assert_clean(app)
             content=' '.join(x.value for x in app.markdown)
             self.assertIn(repo.profile['nombre'],content)
-            self.assertIn(role,content)
-            self.assertIn('Mente y Futuro · Sistema de gestión',content)
+            if owner:
+                self.assertIn(role,content)
+                self.assertIn('Mente y Futuro · Sistema de gestión',content)
             self.assertEqual(paginas_registradas(app),TODAS_PAGINAS)
-            self.assertEqual(menu_visible(app),['Hoy','Nueva solicitud','Casos y cotizaciones','Dashboard'] if owner else ['Nueva solicitud'])
-            self.assertEqual(app.sidebar.button[-1].label,'Cerrar sesión')
+            self.assertEqual(menu_visible(app),['Hoy','Nueva solicitud','Casos y cotizaciones','Dashboard'] if owner else [])
+            self.assertEqual((app.sidebar.button if owner else app.button)[-1 if owner else 0].label,'Cerrar sesión')
             self.assertFalse(app.radio)
             self.assertFalse(any(b.label=='Actualizar información' for b in app.button))
             for info in app._registered_pages.values():
@@ -472,14 +495,13 @@ class AppTests(unittest.TestCase):
         app.run()
         self.assert_clean(app)
         sections=[x.value for x in app.markdown if '<div class="mfy-section-title">' in x.value]
-        self.assertEqual(len(sections),3)
-        self.assertEqual(len([b for b in app.button if b.label=='Enviar solicitud']),1)
-        self.assertTrue(by_label(app.text_input,'Nombre de tu cuenta').disabled)
-        self.assertTrue(by_label(app.text_input,'Correo de contacto *').disabled)
+        self.assertEqual(len(sections),1)
+        self.assertEqual(len([b for b in app.button if b.label=='Siguiente']),1)
+        self.assertTrue(by_label(app.text_input,'Correo electrónico').disabled)
         self.create_request(app)
         self.assert_clean(app)
         self.assertEqual(len(repo.case_rows),1)
-        self.assertTrue(app.success)
+        self.assertTrue(any('48 horas' in m.value for m in app.markdown))
 
     def test_client_cannot_select_private_native_pages_even_with_admin_route_hash(self):
         admin,_=self.setup_app()

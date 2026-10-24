@@ -228,3 +228,5 @@ def configuracion_cotizador(repo):
     configurar_hoy(repo,row)
     from paginas.estado import tarjeta_respaldo
     tarjeta_respaldo(repo)
+    from paginas.configuracion_formulario import configuracion_formulario
+    configuracion_formulario(repo,row)

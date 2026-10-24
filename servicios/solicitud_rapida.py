@@ -54,12 +54,12 @@ def sugerir_correo(valor):
 
 def cuenta_por_correo(correo, perfiles, casos=()):
     coincidencias = [p for p in perfiles if p.get('rol') == 'cliente' and
-                    p.get('email','').strip().casefold() == correo.strip().casefold() and correo.strip()]
+                    (p.get('email') or '').strip().casefold() == correo.strip().casefold() and correo.strip()]
     if coincidencias:return coincidencias[0] if len(coincidencias)==1 else None
     # Un cliente registrado puede conservar un correo de contacto diferente del
     # de Auth. Reutiliza solo una vinculación previa inequívoca y aún válida.
     ids={c.get('cliente_id') for c in casos if correo.strip() and
-         c.get('email','').strip().casefold()==correo.strip().casefold() and c.get('cliente_id')}
+         (c.get('email') or '').strip().casefold()==correo.strip().casefold() and c.get('cliente_id')}
     candidatos=[p for p in perfiles if p.get('rol')=='cliente' and p['id'] in ids]
     return candidatos[0] if len(ids)==1 and len(candidatos)==1 else None
 
@@ -68,7 +68,7 @@ def clientes_existentes(casos):
     """No hay tabla de empresas: usa el caso más reciente por empresa y correo."""
     encontrados = {}
     for caso in sorted(casos, key=lambda c:c.get('created_at',''), reverse=True):
-        identidad = (caso.get('cliente','').strip().casefold(), caso.get('email','').strip().casefold())
+        identidad = ((caso.get('cliente') or '').strip().casefold(), (caso.get('email') or '').strip().casefold())
         if identidad[0]:
             encontrados.setdefault(identidad, caso)
     return list(encontrados.values())
@@ -104,8 +104,8 @@ def duplicados(datos, casos, ahora=None):
         except (KeyError,ValueError,TypeError):
             continue
         mismo = (bool(datos.get('cliente_id')) and datos['cliente_id'] == caso.get('cliente_id')) or (
-            bool(datos.get('email','').strip()) and datos['email'].strip().casefold() == caso.get('email','').strip().casefold()) or (
-            bool(datos.get('cliente','').strip()) and datos['cliente'].strip().casefold() == caso.get('cliente','').strip().casefold())
+            bool((datos.get('email') or '').strip()) and datos['email'].strip().casefold() == (caso.get('email') or '').strip().casefold()) or (
+            bool((datos.get('cliente') or '').strip()) and datos['cliente'].strip().casefold() == (caso.get('cliente') or '').strip().casefold())
         if mismo and limite <= fecha <= ahora:
             resultado.append(caso)
     return resultado

@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 from utils.validaciones import validar_campo
 
 CAMPOS = ("cliente","contacto","email","telefono","servicio","tematica","estado",
-          "participantes","horas","modalidad","lugar","fecha_preferida","detalle","cliente_id","rut","cargo","origen","fecha_realizacion")
+          "participantes","horas","modalidad","lugar","fecha_preferida","detalle","cliente_id","rut","cargo","origen","fecha_realizacion","dirigido_a","referido_por","tematicas")
 
 
 def preparar(almacen, caso):

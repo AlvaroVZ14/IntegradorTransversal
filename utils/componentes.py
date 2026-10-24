@@ -241,3 +241,17 @@ def esqueletos(cantidad=4):
     return ('<div class="mfy-skeleton-grid" role="status" aria-live="polite">'
             '<span class="mfy-sr-only">Cargando información</span>'
             + ''.join('<div class="mfy-skeleton" aria-hidden="true"></div>' for _ in range(cantidad))+'</div>')
+
+
+def enlaces_publicos(config):
+    enlaces=[]
+    # Solo destinos validados y provenientes de mf_configuracion.datos.
+    iconos={
+        'facebook':'<path d="M14 8h3V4h-3c-4 0-5 2-5 5v3H6v4h3v8h4v-8h3l1-4h-4V9c0-1 0-1 1-1Z"/>',
+        'instagram':'<rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1"/>'}
+    for red in ('facebook','instagram'):
+        url=config['redes'].get(red)
+        if url:enlaces.append(f'<a href="{escape(url,quote=True)}" target="_blank" rel="noopener noreferrer" aria-label="{red.capitalize()}"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">{iconos[red]}</svg></a>')
+    if config.get('sitio_web'):
+        enlaces.append(f'<a href="{escape(config["sitio_web"],quote=True)}" target="_blank" rel="noopener noreferrer">Volver al sitio ↗</a>')
+    return '<nav class="mfy-public-links" aria-label="Contacto y redes">'+''.join(enlaces)+'</nav>' if enlaces else ''

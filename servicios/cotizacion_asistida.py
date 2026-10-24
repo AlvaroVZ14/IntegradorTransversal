@@ -40,7 +40,7 @@ def textos_plantilla(caso,tarifa,plantilla):
         dirigido_a=f"{caso.get('cliente','')} · {caso['participantes']} participantes",
         incluye=(tarifa or {}).get('detalle',f"Actividad de {{horas}} horas para {{participantes}} personas."))
     base.update({k:v for k,v in (plantilla or {}).get('textos',{}).items() if k in SECCIONES})
-    base['dirigido_a']=f"{caso.get('cliente','')} · {caso['participantes']} participantes"
+    base['dirigido_a']=caso.get('dirigido_a') or f"{caso.get('cliente','')} · {caso['participantes']} participantes"
     sustituciones={k:str(caso.get(k,'')) for k in ('horas','participantes','cliente','servicio','tematica','modalidad')}
     sustituciones['horas']=f"{float(caso['horas']):g}".replace('.',',')
     for k,v in base.items():

@@ -75,9 +75,9 @@ class SolicitudUITests(unittest.TestCase):
 
     def llenar(self,app,correo='client@example.cl'):
         ir_a(app,'Nueva solicitud')
-        by_label(app.text_input,'Nombre o empresa *').set_value('Fundación Horizonte')
-        by_label(app.text_input,'Persona de contacto *').set_value('Camila Rojas')
-        by_label(app.text_input,'Correo de contacto *').set_value(correo)
+        by_label(app.text_input,'Empresa o institución').set_value('Fundación Horizonte')
+        by_label(app.text_input,'Nombre y apellido').set_value('Camila Rojas')
+        by_label(app.text_input,'Correo electrónico').set_value(correo)
         app.run()
 
     def test_existing_company_autofill_and_manual_link_override(self):
@@ -88,17 +88,17 @@ class SolicitudUITests(unittest.TestCase):
         ir_a(app,'Nueva solicitud')
         by_label(app.selectbox,'Buscar empresa o cliente existente').set_value(existente['id']).run()
         self.assert_clean(app)
-        for label,valor in [('Nombre o empresa *','Fundación Horizonte'),('RUT (opcional)','12.345.678-5'),
-                            ('Persona de contacto *','Camila Rojas'),('Cargo (opcional)','Coordinadora')]:
+        for label,valor in [('Empresa o institución','Fundación Horizonte'),('RUT (opcional)','12.345.678-5'),
+                            ('Nombre y apellido','Camila Rojas'),('Cargo (opcional)','Coordinadora')]:
             self.assertEqual(by_label(app.text_input,label).value,valor)
         enlace=by_label(app.selectbox,'Vincular a una cuenta de cliente')
         self.assertEqual(enlace.value,'client')
         enlace.set_value(None).run()
-        by_label(app.text_input,'Lugar o ciudad').set_value('Calama').run()
+        by_label(app.text_input,'Cargo (opcional)').set_value('Coordinadora').run()
         self.assertIsNone(by_label(app.selectbox,'Vincular a una cuenta de cliente').value)
-        self.assertTrue(by_label(app.text_input,'Nombre o empresa *').value)
-        by_label(app.text_input,'Correo de contacto *').set_value('otra@example.cl').run()
-        by_label(app.text_input,'Correo de contacto *').set_value('client@example.cl').run()
+        self.assertTrue(by_label(app.text_input,'Empresa o institución').value)
+        by_label(app.text_input,'Correo electrónico').set_value('otra@example.cl').run()
+        by_label(app.text_input,'Correo electrónico').set_value('client@example.cl').run()
         self.assertEqual(by_label(app.selectbox,'Vincular a una cuenta de cliente').value,'client')
 
     def test_new_customer_with_account_and_keep_origin_for_next(self):
@@ -111,7 +111,7 @@ class SolicitudUITests(unittest.TestCase):
         self.assert_clean(app)
         self.assertEqual(repo.case_rows[0]['cliente_id'],'client')
         self.assertEqual(repo.case_rows[0]['origen'],'Referido por colega')
-        self.assertEqual(by_label(app.text_input,'Nombre o empresa *').value,'')
+        self.assertEqual(by_label(app.text_input,'Empresa o institución').value,'')
         self.assertEqual(by_label(app.selectbox,'Origen de la solicitud').value,'Referido por colega')
         self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
 
@@ -119,17 +119,17 @@ class SolicitudUITests(unittest.TestCase):
         app,repo=self.setup_app()
         app.run()
         self.llenar(app,'camila@gmial.com')
-        self.assertEqual(by_label(app.text_input,'Correo de contacto *').value,'camila@gmial.com')
+        self.assertEqual(by_label(app.text_input,'Correo electrónico').value,'camila@gmial.com')
         by_label(app.button,'Usar camila@gmail.com').click().run()
-        self.assertEqual(by_label(app.text_input,'Correo de contacto *').value,'camila@gmail.com')
+        self.assertEqual(by_label(app.text_input,'Correo electrónico').value,'camila@gmail.com')
         by_label(app.text_input,'RUT (opcional)').set_value('123456789').run()
-        self.assertTrue(any('verificador' in e.value for e in app.error))
-        by_label(app.button,'Enviar solicitud').click().run()
+        self.assertTrue(any('verificador' in e.value for e in app.markdown))
+        by_label(app.button,'Guardar').click().run()
         self.assertEqual(repo.case_rows,[])
         by_label(app.text_input,'RUT (opcional)').set_value('123456785').run()
         for telefono in ('912345678','+56912345678','9 1234 5678'):
-            by_label(app.text_input,'Teléfono').set_value(telefono).run()
-            self.assertEqual(by_label(app.text_input,'Teléfono').value,'+56 9 1234 5678')
+            by_label(app.text_input,'Teléfono (opcional)').set_value(telefono).run()
+            self.assertEqual(by_label(app.text_input,'Teléfono (opcional)').value,'+56 9 1234 5678')
         self.assert_clean(app)
 
     def test_duplicate_requires_deliberate_override_and_can_open(self):
@@ -153,17 +153,18 @@ class SolicitudUITests(unittest.TestCase):
 
     def test_saved_draft_restores_after_new_session_without_trusting_client_identity(self):
         app,repo=self.setup_app(False)
-        entrada=dict(id=str(uuid4()),values=dict(cliente='Fundación Horizonte',rut='12.345.678-5',cargo='Coordinadora',
-            email='otro@example.cl',contacto='Persona ajena',cliente_id='owner',origen='Reunión',
+        entrada=dict(id=str(uuid4()),token=str(uuid4()),step=3,values=dict(cliente='Empresa Ficticia',rut='12.345.678-5',cargo='Coordinadora',
+            email='otro@example.test',contacto='Persona ajena',cliente_id='owner',origen='Reuni\u00f3n',
             telefono='912345678',detalle='Borrador ficticio',horas=4.0,participantes=15))
-        with patch('utils.solicitud_borrador.component',return_value=lambda **kw:SimpleNamespace(recovered=entrada)):
+        with patch('utils.formulario_borrador.component',return_value=lambda **kw:SimpleNamespace(recovered=entrada)):
             app.run()
         self.assert_clean(app)
-        self.assertEqual(by_label(app.text_area,'¿Qué te gustaría lograr?').value,'Borrador ficticio')
-        self.assertEqual(by_label(app.text_input,'Correo de contacto *').value,repo.user.email)
-        self.assertTrue(by_label(app.text_input,'Correo de contacto *').disabled)
-        self.assertEqual(by_label(app.text_input,'Persona de contacto *').value,repo.profile['nombre'])
-        self.assertFalse(app.checkbox[0].value)
+        self.assertEqual(by_label(app.text_area,'Comentarios y objetivos (opcional)').value,'Borrador ficticio')
+        by_label(app.button,'Atr\u00e1s').click().run()
+        by_label(app.button,'Atr\u00e1s').click().run()
+        self.assertEqual(app.text_input(key='request_email').value,repo.user.email)
+        self.assertTrue(app.text_input(key='request_email').disabled)
+        self.assertEqual(app.text_input(key='request_contacto').value,repo.profile['nombre'])
         self.assertEqual(app.session_state['request_id'],entrada['id'])
         self.assertFalse(any(s.label=='Buscar empresa o cliente existente' for s in app.selectbox))
 
@@ -172,9 +173,10 @@ class SolicitudUITests(unittest.TestCase):
         repo.tariff_rows=[dict(id='tarifa',servicio='Coaching individual',nombre='Coaching',horas=2,participantes=8,activa=True,monto_clp=100000,tratamiento_iva='Exento',detalle='Sesión ficticia',fuente='',version=1)]
         app.run()
         self.llenar(app)
+        base.paso(app,3)
         by_label(app.button,'Aplicar sugerencia').click().run()
-        self.assertEqual(by_label(app.number_input,'Participantes *').value,8)
-        by_label(app.number_input,'Participantes *').set_value(10).run()
+        self.assertEqual(by_label(app.number_input,'Participantes').value,8)
+        by_label(app.number_input,'Participantes').set_value(10).run()
         by_label(app.button,'Guardar y cotizar ahora').click().run()
         self.assert_clean(app)
         self.assertEqual(repo.case_rows[0]['participantes'],10)

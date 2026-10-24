@@ -86,6 +86,9 @@ class Repository:
     def cases(self):
         return self.rows("mf_casos")
 
+    def request_notifications(self):
+        return self.rows('mf_avisos_solicitud')
+
     def live_snapshot(self, vista):
         self.owner_only()
         return fila_rpc(self.client.rpc('mf_lectura_en_vivo', {'p_vista': vista}).execute().data)
@@ -102,14 +105,14 @@ class Repository:
         return self.rows("mf_ventas")
 
     def create_request(self, data, request_id):
-        if not self.is_owner:
-            # No SELECT/INSERT de tablas para clientes, ni siquiera para reintentar.
-            response = fila_rpc(self.client.rpc("registrar_solicitud", {
-                "p_solicitud_id": request_id, "p_datos": data,
-            }).execute().data)
-            if not response or not response.get("codigo"):
-                raise RuntimeError("No se confirmó el guardado de la solicitud.")
-            return escritura_confirmada(response)
+        response=fila_rpc(self.client.rpc('registrar_solicitud',{
+            'p_solicitud_id':request_id,'p_datos':data}).execute().data)
+        if not response.get('codigo'):raise RuntimeError('No se confirmó el guardado de la solicitud.')
+        return escritura_confirmada(response['caso'] if self.is_owner else response)
+
+    def create_request_legacy(self,data,request_id):
+        """Compatibilidad con el esquema anterior, solo para administración."""
+        self.owner_only()
         # UUID estable por formulario: un reintento no crea un segundo caso.
         existing = self.client.table("mf_casos").select("*").eq("id", request_id).execute().data
         if existing:

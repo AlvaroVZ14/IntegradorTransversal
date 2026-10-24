@@ -26,10 +26,12 @@ def _lectura(repo,clave,consulta):
 
 
 def case_table(cases):
-    return pd.DataFrame([{
-        "Caso":code(c), "Cliente":c["cliente"], "Servicio":c["servicio"], "Temática":c["tematica"],
+    frame=pd.DataFrame([{
+        "Caso":code(c), "Cliente":c["cliente"] or 'Por completar', "Servicio":c["servicio"] or 'Por definir', "Temática":c["tematica"] or 'Por definir',
         "Estado":etiqueta_estado(c["estado"]), "Fecha":pd.to_datetime(c["created_at"], utc=True).tz_convert("America/Santiago").date(),
     } for c in cases])
+    if any(c.get('datos_incompletos') for c in cases):frame['Datos']=['Faltan datos' if c.get('datos_incompletos') else 'Completos' for c in cases]
+    return frame
 
 
 def quote_history(quotes,repo=None,case=None):
@@ -121,6 +123,9 @@ def legacy_issue_quote(repo, case):
 
 def issue_quote(repo,case):
     require_admin(repo)
+    if case.get('datos_incompletos'):
+        st.info('Faltan datos del caso. Complétalos en Datos y seguimiento antes de cotizar.')
+        return
     try:
         repo.quote_settings()
     except Exception as error:
@@ -277,8 +282,11 @@ def cases_content(repo):
     st.button('Volver al listado',key='caso_volver_listado',on_click=_cerrar_detalle,
               icon=':material/arrow_back:')
     case = _lectura(repo, 'detalle:'+seleccionado, lambda:repo.get_case(seleccionado))
-    st.subheader(f"{code(case)} · {case['servicio']}")
+    st.subheader(f"{code(case)} · {case.get('servicio') or 'Servicio por definir'}")
     st.markdown(badge_estado(case["estado"]),unsafe_allow_html=True)
+    if case.get('datos_incompletos'):
+        from utils.formulario_config import CAMPOS
+        st.warning('Faltan datos: '+', '.join(CAMPOS['tematicas' if k=='tematica' else k].etiqueta for k in case.get('datos_pendientes',[])))
     st.write("")
     quotes = _lectura(repo,f"cotizaciones:{case['id']}",lambda:repo.quotes(case["id"]))
     if repo.is_owner:

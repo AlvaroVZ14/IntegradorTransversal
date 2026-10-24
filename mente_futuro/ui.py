@@ -62,14 +62,17 @@ def login():
 
 
 def _tarjeta_login():
+    from servicios.acceso import permitir_intento
+    from utils.validaciones import validar_campo
     with st.container(key="mfy_login"):
         st.image(str(LOGO), width="stretch")
         st.title("Te damos la bienvenida")
-        st.markdown('<p class="mfy-login-subtitle">Conectemos tus necesidades con nuevas oportunidades.</p>', unsafe_allow_html=True)
-        signin, signup = st.tabs(["Iniciar sesión", "Crear cuenta de cliente"])
+        st.markdown('<p class="mfy-login-subtitle">Acceso del equipo y cuentas de cliente.</p>', unsafe_allow_html=True)
+        if st.session_state.get('_confirmacion_error'):st.warning(st.session_state.pop('_confirmacion_error'))
+        signin, signup = st.tabs(["Iniciar sesión", "Crear cuenta de cliente"],key='acceso_pestana',on_change='rerun')
         with signin:
             with st.form("login"):
-                email = st.text_input("Correo electrónico", max_chars=254, placeholder="nombre@correo.cl")
+                email = st.text_input("Correo electrónico",key='login_correo', max_chars=254, placeholder="nombre@correo.cl")
                 password = st.text_input("Contraseña", type="password")
                 submitted = st.form_submit_button("Ingresar a mi espacio", type="primary", width="stretch")
             if submitted:
@@ -77,6 +80,7 @@ def _tarjeta_login():
                     st.error("Ingresa tu correo y contraseña.")
                 else:
                     try:
+                        permitir_intento('ingreso')
                         client = public_client()
                         result = client.auth.sign_in_with_password({"email":email.strip(), "password":password})
                         if result.session:
@@ -85,27 +89,52 @@ def _tarjeta_login():
                             st.rerun()
                     except AuthApiError:
                         st.error("No fue posible ingresar. Revisa tu correo, contraseña y confirmación de cuenta.")
+                    except ValueError as error:
+                        st.warning(str(error))
                     except Exception as error:
                         show_error(error, "No pudimos conectar con el servicio de acceso. Intenta nuevamente.")
+            with st.expander('¿No recibiste el correo de confirmación?'):
+                reenviar=st.text_input('Correo de la cuenta',max_chars=254,key='reenviar_correo')
+                if st.button('Solicitar otro correo',key='reenviar_confirmacion'):
+                    if validar_campo('email',reenviar):st.error('Escribe un correo válido para continuar.')
+                    else:
+                        try:
+                            permitir_intento('registro')
+                            public_client().auth.resend({'type':'signup','email':reenviar.strip()})
+                            st.info('Si la cuenta necesita confirmación, recibirás un correo. Revisa también Spam.')
+                        except Exception:st.warning('No pudimos solicitar el correo. Espera unos minutos o envía tu solicitud sin crear cuenta.')
         with signup:
+            st.write('Tus datos quedan listos para tus próximas solicitudes.')
             with st.form("signup"):
                 name = st.text_input("Nombre completo", max_chars=160)
                 new_email = st.text_input("Tu correo", max_chars=254)
                 new_password = st.text_input("Crea una contraseña", type="password", help="Usa al menos 8 caracteres.")
                 confirm = st.text_input("Repite la contraseña", type="password")
+                honey=st.text_input('Deja este campo vacío',key='signup_sitio_confirmacion')
                 submitted = st.form_submit_button("Crear mi cuenta", type="primary", width="stretch")
             if submitted:
-                if len(name.strip()) < 2 or "@" not in new_email or len(new_password) < 8 or new_password != confirm:
+                if honey or len(name.strip()) < 2 or validar_campo('email',new_email.strip()) or len(new_password) < 8 or new_password != confirm:
                     st.error("Completa tu nombre y correo, y usa contraseñas iguales de al menos 8 caracteres.")
                 else:
                     try:
+                        permitir_intento('registro')
                         client = public_client()
                         result = client.auth.sign_up({"email":new_email.strip(), "password":new_password, "options":{"data":{"nombre":name.strip()}}})
                         if result.session:
                             st.session_state.auth_client = client
                             st.session_state.inicio_tras_login = True
                             st.rerun()
-                        st.success("Revisa tu correo para confirmar la cuenta y luego inicia sesión. Si ya tenías una cuenta, ingresa con tus datos.")
+                        st.session_state['_signup_aviso']=new_email.strip()
                     except Exception as error:
-                        show_error(error, "No se pudo completar el registro. Revisa los datos o intenta más tarde.")
-        st.markdown('<div class="note">Desde tu cuenta puedes enviar una solicitud. Revisaremos tus necesidades y te contactaremos para preparar una propuesta a tu medida.</div>', unsafe_allow_html=True)
+                        if getattr(error,'code','') in ('user_already_exists','email_exists'):
+                            st.session_state['_signup_aviso']=new_email.strip()
+                        else:st.warning('No pudimos completar el registro o enviar su confirmación. Puedes reintentar más tarde o enviar tu solicitud sin crear cuenta.')
+            if st.session_state.get('_signup_aviso'):
+                st.info('Si este correo es nuevo, revisa el mensaje para confirmar tu cuenta. Si ya tenías una cuenta, puedes iniciar sesión con tus datos.')
+                def ingresar():
+                    st.session_state['login_correo']=st.session_state['_signup_aviso']
+                    st.session_state['acceso_pestana']='Iniciar sesión'
+                st.button('Iniciar sesión con este correo',on_click=ingresar,width='stretch')
+        st.markdown('<div class="note">Puedes enviar una solicitud sin cuenta. Crear una cuenta es opcional: deja tu nombre y correo listos para próximas solicitudes. Administración conserva su acceso de gestión.</div>', unsafe_allow_html=True)
+        if st.button('Continuar sin cuenta',type='tertiary',width='stretch'):
+            st.query_params.pop('vista',None);st.rerun()

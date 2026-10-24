@@ -17,9 +17,12 @@ def rut_valido(valor):
 
 
 def validar_campo(campo, valor):
+    if campo=='tematicas':
+        if not isinstance(valor,list) or not 1<=len(valor)<=6 or len(set(valor))!=len(valor) or any(v not in TOPICS for v in valor):return 'Selecciona entre 1 y 6 temáticas válidas.'
+        return None
     if campo in ("cliente", "contacto") and len(str(valor or "").strip())<2:
         return "Escribe al menos 2 caracteres."
-    limites = {"cliente":180,"contacto":160,"email":254,"telefono":40,"lugar":250,"detalle":5000,"cargo":160,"rut":16}
+    limites = {"cliente":180,"contacto":160,"email":254,"telefono":40,"lugar":250,"detalle":5000,"cargo":160,"rut":16,"dirigido_a":1000,"referido_por":160}
     if campo in limites and len(str(valor or ""))>limites[campo]:
         return f"Usa como máximo {limites[campo]} caracteres."
     if campo=="email" and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+",str(valor or "")):

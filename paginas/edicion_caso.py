@@ -100,8 +100,8 @@ def editar_caso(repo,caso):
         if nombre in ('rut','cargo'):valor=valor or ''
         if nombre in ("fecha_preferida","fecha_realizacion"):
             valor=date.fromisoformat(valor) if isinstance(valor,str) and valor else valor
-        if nombre=="horas": valor=float(valor)
-        if nombre=="participantes": valor=int(valor)
+        if nombre=="horas" and valor is not None: valor=float(valor)
+        if nombre=="participantes" and valor is not None: valor=int(valor)
         # El borrador manual sobrevive a la limpieza de widgets al cambiar de página.
         if llave not in st.session_state or nombre not in borrador["pendientes"]:
             st.session_state[llave]=valor
@@ -132,6 +132,7 @@ def editar_caso(repo,caso):
             campo("telefono","Teléfono","text_input",max_chars=40)
             campo("servicio","Servicio","selectbox",options=SERVICES)
             campo("tematica","Temática","selectbox",options=TOPICS)
+            if 'tematicas' in caso:campo('tematicas','Temáticas','multiselect',options=TOPICS)
         with b:
             estados=[s for s in STATES if s!="Vendido" or borrador["ultimo"]["estado"]=="Vendido"]
             campo("estado","Estado del caso","selectbox",options=estados,format_func=etiqueta_opcion_estado)
@@ -145,6 +146,8 @@ def editar_caso(repo,caso):
                 campo('fecha_realizacion','Jornada realizada el (opcional)','date_input',format='DD/MM/YYYY',
                       help='Confirma esta fecha solo después de realizar la jornada. Permite ofrecer el cierre cuando el pago esté completo.')
         campo("detalle","Objetivos y detalle compartido con el cliente","text_area",max_chars=5000)
+        if 'dirigido_a' in caso:campo('dirigido_a','Dirigido a (opcional)','text_input',max_chars=1000)
+        if 'referido_por' in caso:campo('referido_por','Referido por','text_input',max_chars=160)
         from servicios.solicitud_rapida import ORIGENES
         origen=borrador['ultimo'].get('origen')
         campo('origen','Origen de la solicitud','selectbox',options=ORIGENES+([origen] if origen and origen not in ORIGENES else []))

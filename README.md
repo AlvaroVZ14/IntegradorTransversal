@@ -2,7 +2,7 @@
 
 Aplicación Streamlit para solicitudes, casos, tarifas, cotizaciones y ventas, con Supabase Auth y PostgreSQL. Usa el logo original y los colores celeste, violeta y amarillo. No incluye marketing ni captación de clientes.
 
-**Formulario desde Instagram o el sitio:** `/?vista=solicitud` permite enviar sin cuenta. [Activación del SQL, diseño, seguridad y pruebas](docs/login_y_formulario_publico.md). Administración conserva todas sus funciones; los clientes con cuenta siguen viendo solo Nueva solicitud.
+**Entrada directa:** la URL base y `/?vista=solicitud` abren el formulario sin cuenta. `/?vista=acceso` abre el login. Público, cliente e interno comparten [un formulario de tres pasos](docs/formulario_unificado.md), con sus diferencias de permisos. La guía incluye el SQL nuevo, SMTP de confirmación, avisos a la dueña y pruebas.
 
 ## Las tres secciones
 

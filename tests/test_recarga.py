@@ -33,6 +33,10 @@ class RecargaTests(unittest.TestCase):
         repo=FakeRepository(rol!='cliente')
         for target,value in [('servicios.repositorio.Repository',repo),('utils.sesion_cookie.puente_cookie',True),('utils.sesion_cookie.cookie_inicial','')]:
             p=patch(target,return_value=value);p.start();self.addCleanup(p.stop)
+        from mente_futuro.domain import SERVICES,TOPICS
+        from servicios.formulario_publico import configuracion_visible
+        for target,value in [('servicios.formulario.catalogo_publico',dict(servicios=SERVICES,tematicas=TOPICS,version=2,pendiente=False)),('paginas.formulario.configuracion_publica',configuracion_visible({}))]:
+            p=patch(target,return_value=value);p.start();self.addCleanup(p.stop)
         app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=25)
         if rol:app.session_state['auth_client']=repo.client
         return app,repo
@@ -41,13 +45,13 @@ class RecargaTests(unittest.TestCase):
         app=AppTest.from_string("import streamlit as st\nst.navigation([st.Page(lambda:st.write('Ingreso'),title='Ingresar',default=True)],position='hidden').run()",default_timeout=25)
         self.assertGreater(recargar(app,'dashboard'),0)
 
-    def test_each_url_without_session_shows_login_and_remembers_destination(self):
+    def test_each_url_without_session_shows_public_form_and_remembers_destination(self):
         for path,title in [('hoy','Hoy'),('nueva-solicitud','Nueva solicitud'),('casos','Casos y cotizaciones'),('dashboard','Dashboard'),('estado','Estado')]:
             app,_=self.app()
             self.assertEqual(recargar(app,path),0)
             self.assertFalse(app.exception);self.assertFalse(app.error)
             self.assertEqual(app.session_state['destino_tras_login'],title)
-            self.assertTrue(any(b.label=='Ingresar a mi espacio' for b in app.button))
+            self.assertTrue(any(b.label=='Siguiente' for b in app.button))
             self.assertFalse(menu_visible(app))
 
     def test_each_url_admin_and_client_and_unknown_paths(self):
@@ -59,7 +63,7 @@ class RecargaTests(unittest.TestCase):
                 self.assertEqual(list(p['page_name'] for p in app._registered_pages.values()),TODAS_PAGINAS)
                 if rol=='cliente':
                     self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
-                    self.assertEqual(menu_visible(app),['Nueva solicitud'])
+                    self.assertEqual(menu_visible(app),[])
                     self.assertFalse(app.dataframe);self.assertFalse(app.metric)
                 elif path in ['no-existe','ruta/anidada']:
                     self.assertEqual(app.session_state['navigation'],'Hoy')
@@ -84,7 +88,7 @@ class RecargaTests(unittest.TestCase):
         with patch('utils.sesion_cookie.cookie_inicial',return_value=cookie),patch('servicios.repositorio.public_client',return_value=repo.client):
             self.assertEqual(recargar(app,'dashboard'),0)
         self.assertNotIn('auth_client',app.session_state)
-        self.assertTrue(any(b.label=='Ingresar a mi espacio' for b in app.button))
+        self.assertTrue(any(b.label=='Siguiente' for b in app.button))
 
     def test_network_error_during_restore_keeps_loading_and_cookie(self):
         app,_=self.app()

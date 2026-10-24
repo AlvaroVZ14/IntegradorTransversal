@@ -75,6 +75,15 @@ def page(repo):
         else:st.caption('Monitoreo automático: sin ejecución registrada.')
         st.caption('La revisión automática comprueba Supabase, el respaldo y la respuesta HTTP del enlace; no confirma que el formulario funcione ni evita la hibernación.')
     except Exception:st.warning('No pudimos leer los registros de correos o mantenimiento.')
+    try:
+        avisos=repo.request_notifications()
+        st.subheader('Avisos de nuevas solicitudes')
+        if not avisos:st.info('Aún no hay avisos de nuevas solicitudes en la cola.')
+        else:
+            estados={'pendiente':'Pendientes','preparado':'En proceso','enviado':'Aceptados por correo','error':'Para reintentar','incierto':'Revisar antes de reenviar'}
+            st.write(' · '.join(f'{label}: {sum(a["estado"]==estado for a in avisos)}' for estado,label in estados.items()))
+            st.caption('La solicitud queda guardada aunque falle el aviso. Los envíos inciertos se revisan antes de repetirlos.')
+    except Exception:st.caption('Los avisos de nuevas solicitudes aparecerán al activar su actualización.')
 
 
 if __name__=='__main__':
