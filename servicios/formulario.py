@@ -74,6 +74,12 @@ def guardar(borrador,modo,repo,consentimiento,trampa,catalogo):
     if modo!='interno' and not consentimiento:raise ValueError('Debes autorizar el uso de tus datos para enviar la solicitud.')
     if trampa:raise ValueError('No pudimos confirmar el formulario. Revisa los datos e intenta nuevamente.')
     datos=datos_normalizados(borrador['values'],modo,repo)
+    if modo!='interno':
+        from utils.canales import normalizar_canal
+        if catalogo.get('version',1)>=3:
+            datos['canal_captacion']=normalizar_canal(borrador.get('canal_captacion','directo'))
+        elif borrador.get('canal_explicito'):
+            raise ValueError('Estamos preparando este enlace. Conservamos tu borrador; vuelve a intentarlo más tarde.')
     if modo=='interno':datos['consentimiento_confirmado']=bool(consentimiento)
     else:datos.update(consentimiento=True,honeypot='')
     if catalogo.get('pendiente'):

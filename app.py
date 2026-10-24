@@ -22,6 +22,11 @@ def main():
     desconocida=resolver_ruta_desconocida()
     registro,paginas=crear_paginas()
     actual=st.navigation(registro,position='hidden')
+    # st.switch_page limpia los parámetros de URL: retener solo la atribución,
+    # sin usarla para decidir sesión, rol o destino.
+    if 'canal' in st.query_params:
+        from utils.canales import normalizar_canal
+        st.session_state['_canal_entrada']=normalizar_canal(st.query_params['canal'])
     if desconocida:st.session_state['ruta_inexistente']=True
     from servicios.acceso import confirmar_enlace
     if confirmar_enlace():return
@@ -90,7 +95,11 @@ def main():
     segura=guard_route(repo.profile,destino or actual.title)
     if not repo.is_owner:
         for key in list(st.query_params):
-            if key!='vista':del st.query_params[key]
+            if key not in ('vista','canal'):del st.query_params[key]
+        if 'canal' in st.query_params:
+            from utils.canales import normalizar_canal
+            canal=normalizar_canal(st.query_params['canal'])
+            if st.query_params['canal']!=canal:st.query_params['canal']=canal
         st.session_state.pop('selected_case',None)
     if segura!=actual.title:st.switch_page(paginas[segura])
     st.session_state.navigation=segura

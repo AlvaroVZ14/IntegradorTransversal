@@ -46,7 +46,7 @@ class RecargaTests(unittest.TestCase):
         self.assertGreater(recargar(app,'dashboard'),0)
 
     def test_each_url_without_session_shows_public_form_and_remembers_destination(self):
-        for path,title in [('hoy','Hoy'),('nueva-solicitud','Nueva solicitud'),('casos','Casos y cotizaciones'),('dashboard','Dashboard'),('estado','Estado')]:
+        for path,title in [('hoy','Hoy'),('nueva-solicitud','Nueva solicitud'),('casos','Casos y cotizaciones'),('compartir','Compartir'),('dashboard','Dashboard'),('estado','Estado')]:
             app,_=self.app()
             self.assertEqual(recargar(app,path),0)
             self.assertFalse(app.exception);self.assertFalse(app.error)
@@ -56,7 +56,7 @@ class RecargaTests(unittest.TestCase):
 
     def test_each_url_admin_and_client_and_unknown_paths(self):
         for rol in ['admin','cliente']:
-            for path in ['hoy','nueva-solicitud','casos','dashboard','estado','no-existe','ruta/anidada']:
+            for path in ['hoy','nueva-solicitud','casos','compartir','dashboard','estado','no-existe','ruta/anidada']:
                 app,_=self.app(rol)
                 self.assertEqual(recargar(app,path),0,(rol,path))
                 self.assertFalse(app.exception);self.assertFalse(app.error)

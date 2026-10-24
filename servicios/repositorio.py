@@ -183,6 +183,10 @@ class Repository:
         rows=self.client.table('mf_configuracion').select('*').eq('id','general').execute().data
         return rows[0] if rows else {'datos':{},'version':0}
 
+    def sharing_settings(self):
+        self.owner_only()
+        return fila_rpc(self.client.rpc('mf_configuracion_compartir',{}).execute().data)
+
     def save_quote_settings(self,data,version):
         self.owner_only()
         result=self.client.table('mf_configuracion').update({'datos':data}).eq('id','general').eq('version',version).execute().data

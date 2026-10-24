@@ -8,6 +8,7 @@ PAGINAS = {
     "Hoy": ("paginas/hoy.py", "hoy", ":material/today:", "INICIO"),
     "Nueva solicitud": ("paginas/nueva_solicitud.py", "nueva-solicitud", ":material/add_circle:", "GESTIÓN"),
     "Casos y cotizaciones": ("paginas/gestion.py", "casos", ":material/folder_open:", "GESTIÓN"),
+    "Compartir": ("paginas/compartir.py", "compartir", ":material/share:", "GESTIÓN"),
     "Dashboard": ("paginas/dashboard.py", "dashboard", ":material/dashboard:", "ANÁLISIS"),
     "Estado": ("paginas/estado.py", "estado", ":material/monitor_heart:", "MANTENIMIENTO"),
 }

@@ -135,6 +135,8 @@ def _contenido(repo, pausado=False):
     if not total:
         st.success('Todo al día. Buen trabajo')
         todo_al_dia()
+    from paginas.compartir import tarjeta_compartir
+    tarjeta_compartir(datos['configuracion'])
     grupos=[('solicitudes','Solicitudes sin cotizar'),('seguimientos','Cotizaciones sin respuesta'),('datos','Faltan datos'),
             ('pagos','Ventas con pago pendiente o anticipo'),('cierres','Casos que se pueden cerrar'),('correos','Correos por revisar')]
     for clave,titulo in grupos:

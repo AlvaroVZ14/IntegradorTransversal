@@ -284,6 +284,9 @@ def cases_content(repo):
     case = _lectura(repo, 'detalle:'+seleccionado, lambda:repo.get_case(seleccionado))
     st.subheader(f"{code(case)} · {case.get('servicio') or 'Servicio por definir'}")
     st.markdown(badge_estado(case["estado"]),unsafe_allow_html=True)
+    from utils.canales import etiqueta_canal
+    from utils.componentes import chips_activos
+    chips_activos(['Canal · '+etiqueta_canal(case.get('canal_captacion'))])
     if case.get('datos_incompletos'):
         from utils.formulario_config import CAMPOS
         st.warning('Faltan datos: '+', '.join(CAMPOS['tematicas' if k=='tematica' else k].etiqueta for k in case.get('datos_pendientes',[])))

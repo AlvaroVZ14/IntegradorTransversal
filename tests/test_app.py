@@ -108,6 +108,9 @@ class FakeRepository:
     def save_tariff(self,data,tariff=None):
         self.tariff_rows.append(dict(data,id=str(uuid4()),version=1))
     def quote_settings(self):return deepcopy(self.settings_row)
+    def sharing_settings(self):
+        self.owner_only()
+        return self.quote_settings()
     def save_quote_settings(self,data,version):
         self.settings_row=dict(datos=deepcopy(data),version=version+1)
         return deepcopy(self.settings_row)
@@ -439,7 +442,7 @@ class AppTests(unittest.TestCase):
                 self.assertIn(role,content)
                 self.assertIn('Mente y Futuro · Sistema de gestión',content)
             self.assertEqual(paginas_registradas(app),TODAS_PAGINAS)
-            self.assertEqual(menu_visible(app),['Hoy','Nueva solicitud','Casos y cotizaciones','Dashboard'] if owner else [])
+            self.assertEqual(menu_visible(app),['Hoy','Nueva solicitud','Casos y cotizaciones','Compartir','Dashboard'] if owner else [])
             self.assertEqual((app.sidebar.button if owner else app.button)[-1 if owner else 0].label,'Cerrar sesión')
             self.assertFalse(app.radio)
             self.assertFalse(any(b.label=='Actualizar información' for b in app.button))

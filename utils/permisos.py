@@ -1,5 +1,5 @@
 """El rol siempre procede de mf_perfiles, nunca de la URL o user_metadata."""
-ADMIN_PAGES = ("Hoy", "Nueva solicitud", "Casos y cotizaciones", "Dashboard")
+ADMIN_PAGES = ("Hoy", "Nueva solicitud", "Casos y cotizaciones", "Compartir", "Dashboard")
 CLIENT_PAGE = "Nueva solicitud"
 
 

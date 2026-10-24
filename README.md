@@ -160,3 +160,7 @@ tests/                     Pruebas de aplicación y PostgreSQL
 ```
 
 Referencias de implementación: [Supabase Auth para Python](https://supabase.com/docs/reference/python/auth-signinwithpassword), [permisos RLS](https://supabase.com/docs/guides/database/postgres/row-level-security) y [pruebas de Streamlit](https://docs.streamlit.io/develop/api-reference/app-testing/st.testing.v1.apptest).
+
+## Compartir el formulario
+
+Administración puede obtener enlaces por canal, textos y QR desde **GESTIÓN → Compartir**. Activación SQL, URL pública y pruebas: [guía de Compartir](docs/compartir.md).

@@ -182,6 +182,10 @@ def _contenido_dashboard(repo, filtros_activos):
             _mostrar(origenes(filtered_cases,reduced),"plot_origen")
     with b:
         dato_destacado(frase_destacada(data,grouping))
+    with tarjeta_grafico('Solicitudes por canal','Canal del enlace usado · mismo período y filtros del tablero','canales'):
+        from utils.canales import conteo_canales
+        canales=conteo_canales(filtered_cases)
+        _mostrar(barras_horizontales(list(canales),list(canales.values()),AZUL,reduced),'plot_canales')
     with st.expander("Ver más gráficos"):
         a,b = st.columns(2)
         with a:

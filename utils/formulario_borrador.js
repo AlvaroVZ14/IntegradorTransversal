@@ -18,7 +18,7 @@ export default function({data,setStateValue}) {
   }
   if(draft && draft.id!==data.id){setStateValue('recovered',draft);}
   else if(Object.keys(unsent).length){setStateValue('recovered',{...data,values:{...data.values,...unsent}});}
-  else if(!data.discard.includes(data.id))write({id:data.id,token:data.token,step:data.step,values:{...data.values}});
+  else if(!data.discard.includes(data.id))write({id:data.id,token:data.token,step:data.step,values:{...data.values},canal_captacion:data.canal_captacion,canal_explicito:data.canal_explicito});
 
   // Solo atributos de los campos públicos: React conserva valores y callbacks.
   const decorate=()=>{
@@ -54,7 +54,7 @@ export default function({data,setStateValue}) {
       if(!event.target.closest('.st-key-'+data.prefix+field))continue;
       if(typeof event.target.value!=='string')return;
       const local=load();
-      const next=local?.id===data.id?local:{id:data.id,token:data.token,step:data.step,values:{...data.values}};
+      const next=local?.id===data.id?local:{id:data.id,token:data.token,step:data.step,values:{...data.values},canal_captacion:data.canal_captacion,canal_explicito:data.canal_explicito};
       next.values[field]=event.target.value;write(next);return;
     }
   };

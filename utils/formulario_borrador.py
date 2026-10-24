@@ -22,6 +22,10 @@ def iniciar(modo,repo,catalogo):
         valores['origen']=st.session_state.get('solicitud_ultimo_origen',valores['origen'])
         almacen[scope]=dict(id=(antiguo or {}).get('id',str(uuid4())),token=(antiguo or {}).get('token',str(uuid4())),step=1,values=valores,tocados=[],ack={},scope=scope)
     borrador=almacen[scope]
+    if modo!='interno' and 'canal_captacion' not in borrador:
+        from utils.canales import normalizar_canal
+        borrador['canal_captacion']=normalizar_canal(st.query_params.get('canal',st.session_state.get('_canal_entrada','directo')))
+        borrador['canal_explicito']='canal' in st.query_params or '_canal_entrada' in st.session_state
     borrador['values']['tematica']=next(iter(borrador['values']['tematicas']),None)
     if modo=='cliente':
         borrador['values'].update(contacto=repo.profile.get('nombre',''),email=repo.user.email or '',cliente_id=None,origen='Formulario web',referido_por='')
@@ -32,7 +36,9 @@ def recuperar(borrador,modo,repo,catalogo):
     bridge=component('mfy_formulario_borrador',html='<span aria-hidden="true"></span>',
         js=Path(__file__).with_suffix('.js').read_text(encoding='utf-8'))
     legacy='mfy-public-draft-v1' if modo=='publico' else 'mfy-solicitud:'+str(repo.user.id)
-    respuesta=bridge(data={**{k:borrador[k] for k in ('id','token','step','values','ack')},'texts':[k for k in TEXTOS if modo in CAMPOS[k].modos and k not in BLOQUEADOS[modo]],
+    respuesta=bridge(data={**{k:borrador[k] for k in ('id','token','step','values','ack')},
+        **{k:borrador[k] for k in ('canal_captacion','canal_explicito') if k in borrador},
+        'texts':[k for k in TEXTOS if modo in CAMPOS[k].modos and k not in BLOQUEADOS[modo]],
         'prefix':prefijo(modo),'storageKey':'mfy-formulario:'+borrador['scope'],'legacyKey':legacy,
         'focus':borrador.pop('focus',None),'discard':st.session_state.get('formularios_descartados',[])},
         default={'recovered':None},on_recovered_change=lambda:None,key='ff_backup_'+modo,height=0)
@@ -44,6 +50,10 @@ def recuperar(borrador,modo,repo,catalogo):
     if entrada['id'] in st.session_state.get('formularios_descartados',[]):return
     valores=entrada.get('values')
     if not isinstance(valores,dict):return
+    if modo!='interno' and 'canal_captacion' in entrada:
+        from utils.canales import normalizar_canal
+        borrador['canal_captacion']=normalizar_canal(entrada['canal_captacion'])
+        borrador['canal_explicito']=entrada.get('canal_explicito') is True
     opciones={'servicio':catalogo['servicios'],'modalidad':OPCIONES['modalidad'],'origen':OPCIONES['origen']}
     for campo,valor in valores.items():
         if campo not in borrador['values'] or campo in BLOQUEADOS[modo]:continue

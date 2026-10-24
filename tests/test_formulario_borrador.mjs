@@ -9,7 +9,7 @@ globalThis.document={body:{},querySelector:()=>null,documentElement:{style:{setP
  addEventListener:(k,f)=>listeners[k]=f,removeEventListener(){}};
 globalThis.MutationObserver=class{observe(){}disconnect(){}};
 globalThis.Element=class{};
-const base={storageKey:'mfy-formulario:publico:visitante',legacyKey:'mfy-public-draft-v1',prefix:'publico_',id:'ficticio',token:'secreto-aleatorio-ficticio',step:1,values:{contacto:'',email:'',participantes:12},texts:['contacto','email'],ack:{},discard:[]};
+const base={storageKey:'mfy-formulario:publico:visitante',legacyKey:'mfy-public-draft-v1',prefix:'publico_',id:'ficticio',token:'secreto-aleatorio-ficticio',step:1,values:{contacto:'',email:'',participantes:12},texts:['contacto','email'],ack:{},discard:[],canal_captacion:'instagram',canal_explicito:true};
 let recovered;
 const execute=data=>run({data,setStateValue:(k,v)=>recovered=v});
 let cleanup=execute(base);
@@ -18,6 +18,7 @@ const input=new Element();input.closest=s=>s==='.st-key-publico_contacto';input.
 cleanup();
 execute({...base,id:'otra-sesion'});
 assert.equal(recovered.values.contacto,'Camila Ficticia');assert.equal(recovered.token,base.token);
+assert.equal(recovered.canal_captacion,'instagram');assert.equal(recovered.canal_explicito,true);
 assert.ok(!('consentimiento' in recovered.values));assert.ok(!('password' in recovered.values));
 recovered=null;execute({...base,values:{...base.values,contacto:'Camila Ficticia'},ack:{contacto:'Camila Ficticia'},step:2});
 assert.equal(JSON.parse(memory.get(base.storageKey)).step,2);
