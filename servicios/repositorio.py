@@ -86,6 +86,10 @@ class Repository:
     def cases(self):
         return self.rows("mf_casos")
 
+    def live_snapshot(self, vista):
+        self.owner_only()
+        return fila_rpc(self.client.rpc('mf_lectura_en_vivo', {'p_vista': vista}).execute().data)
+
     def tariffs(self):
         self.owner_only()
         return self.rows("mf_tarifas")

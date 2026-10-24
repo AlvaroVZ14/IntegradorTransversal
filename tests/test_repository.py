@@ -31,6 +31,17 @@ class QueryClient:
 
 
 class RepositoryTests(unittest.TestCase):
+    def test_live_snapshot_is_one_rpc_and_client_is_denied(self):
+        client=Mock()
+        client.rpc.return_value.execute.return_value.data={'casos':[],'ventas':[]}
+        repo=Repository(client,SimpleNamespace(id='ficticio'),{'rol':'admin'})
+        self.assertEqual(repo.live_snapshot('dashboard'),{'casos':[],'ventas':[]})
+        client.rpc.assert_called_once_with('mf_lectura_en_vivo',{'p_vista':'dashboard'})
+        client.table.assert_not_called()
+        with self.assertRaises(PermissionError):
+            Repository(client,SimpleNamespace(id='ficticio-cliente'),{'rol':'cliente'}).live_snapshot('dashboard')
+        self.assertEqual(client.rpc.call_count,1)
+
     def test_composite_rpc_arrays_are_normalized_and_empty_results_fail(self):
         from servicios.repositorio import fila_rpc
         row={'id':'cotizacion','version':2}

@@ -112,6 +112,8 @@ Consulta [la guía de activación, pruebas manuales y reversión](docs/cliente_s
 
 ## Estructura
 
+La [actualización en vivo](docs/actualizacion_en_vivo.md) elimina los botones de refresco y mantiene Dashboard, Hoy y el listado de Casos al día. Requiere aplicar una vez la nueva función SQL indicada en esa guía; no requiere nuevas dependencias ni claves.
+
 La actualización de presentación del portal, archivos completos y matriz de revisión a 375 px, 768 px y escritorio están en [Portal como producto](docs/portal_producto.md).
 
 La unificación más reciente de encabezados, tarjetas y formularios está en [Lenguaje visual común](docs/lenguaje_visual.md), con la entrega completa y sus pruebas.

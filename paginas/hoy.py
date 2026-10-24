@@ -10,15 +10,11 @@ from mente_futuro.ui import flash,show_error
 from servicios.hoy import configuracion_hoy,pendientes,saludo,mensaje_listo,CHILE
 from servicios.envio_cotizacion import enlace_whatsapp
 from utils.permisos import require_admin
-from utils.componentes import encabezado_pagina,tarjeta_kpi,cargando_datos
+from utils.componentes import encabezado_pagina,tarjeta_kpi
 from utils.mensaje_listo import copiar_mensaje
 from utils.validaciones import validar_campo
-
-
-@st.cache_data(ttl=60,show_spinner=False,max_entries=64)
-def _consultar(ambito,revision,_repo):
-    _repo.owner_only();_repo.today_ready()
-    return (_repo.cases(),_repo.all_quotes(),_repo.sales(),_repo.today_events(),_repo.email_attempts(),_repo.quote_settings()['datos'])
+from servicios.en_vivo import cargar, carga_inicial, estado
+from utils.en_vivo import indicador
 
 
 def abrir_caso(caso,tab='datos'):
@@ -105,17 +101,24 @@ def aviso_cierre(repo):
             st.button('Deshacer',key='hoy_deshacer',on_click=_deshacer,args=(repo,))
 
 
-def _contenido(repo):
+def _contenido(repo, pausado=False):
     ahora=datetime.now(CHILE)
-    nombre=((repo.profile.get('nombre') or '').split() or ['Administración'])[0]
-    encabezado_pagina(f'{saludo(ahora.hour)}, {nombre}',f'{ahora:%d/%m/%Y} · Tus próximos pasos, en un solo lugar.','HOY','☀')
-    scope=st.session_state.setdefault('hoy_cache_scope',str(uuid4()))
-    with cargando_datos('Revisando tus pendientes…'):
-        casos,cotizaciones,ventas,eventos,envios,datos=_consultar(scope,st.session_state.get('dashboard_revision',0),repo)
-    config=configuracion_hoy(datos)
+    if pausado:
+        lectura=estado('hoy')
+        if lectura.get('intento',(-1,))[0] != st.session_state.get('dashboard_revision',0):
+            lectura=cargar(repo,'hoy')
+    else:
+        with carga_inicial('hoy', 'Revisando tus pendientes…'):
+            lectura=cargar(repo,'hoy')
+    indicador('hoy', publicar=True, pausado=pausado)
+    if 'datos' not in lectura:
+        st.info('Aún no pudimos conectar. Tus pendientes aparecerán cuando vuelva la conexión.')
+        return
+    datos=lectura['datos']
+    casos,cotizaciones,ventas,eventos,envios=[datos[k] for k in ('casos','cotizaciones','ventas','eventos','envios')]
+    config=configuracion_hoy(datos['configuracion'])
     tareas=pendientes(casos,cotizaciones,ventas,eventos,envios,config,ahora)
     total=sum(len(v) for v in tareas.values())
-    st.caption('Revisión automática cada 30 s · Lecturas con caché de hasta 60 s · Ninguna tarea cambia estados ni envía mensajes por sí sola.')
     columnas=st.columns(3)
     for columna,(label,valor,icono,tono) in zip(columnas,[('Acciones pendientes',total,'◷','azul'),('Por cotizar',len(tareas['solicitudes']),'✧','morado'),('Pagos por registrar',len(tareas['pagos']),'$','amarillo')]):
         with columna:tarjeta_kpi(label,valor,icon=icono,tone=tono,key='hoy_'+label)
@@ -170,13 +173,14 @@ def _contenido(repo):
                 guardar_plantilla(repo,post['caso'],post['cotizacion'])
             st.button('Preparar agradecimiento',key='hoy_gracias',on_click=_abrir_mensaje,args=('agradecimiento',post['caso'],post.get('cotizacion'),post.get('venta')))
             if st.button('Cerrar sugerencias',key='hoy_close_suggestions'):st.session_state.pop('hoy_post_cierre',None);st.rerun()
-    aviso_cierre(repo)
-    if st.session_state.get('hoy_mensaje'):dialogo_mensaje(repo,st.session_state.hoy_mensaje,config)
 
 
 @st.fragment(run_every='30s')
 def _actualizar(repo):
     if st.session_state.get('pending_navigation'):st.rerun(scope='app')
+    # Un diálogo se abre en una ejecución completa y queda fuera del temporizador.
+    if st.session_state.get('hoy_mensaje') or st.session_state.get('hoy_post_cierre'):
+        st.rerun(scope='app')
     try:_contenido(repo)
     except Exception as error:
         if getattr(error,'code','') in ('PGRST205','PGRST204','PGRST202','42703','42P01'):
@@ -186,7 +190,19 @@ def _actualizar(repo):
 
 def hoy_page(repo):
     require_admin(repo)
-    _actualizar(repo)
+    ahora=datetime.now(CHILE)
+    nombre=((repo.profile.get('nombre') or '').split() or ['Administración'])[0]
+    encabezado_pagina(f'{saludo(ahora.hour)}, {nombre}',f'{ahora:%d/%m/%Y} · Tus próximos pasos, en un solo lugar.',
+                      'HOY','☀',acciones=lambda:indicador('hoy'))
+    if st.session_state.get('hoy_mensaje') or st.session_state.get('hoy_post_cierre'):
+        # Conserva las tarjetas mientras se edita el mensaje, sin programar lecturas.
+        _contenido(repo, pausado=True)
+        if st.session_state.get('hoy_mensaje'):
+            config=configuracion_hoy(estado('hoy').get('datos',{}).get('configuracion',{}))
+            dialogo_mensaje(repo,st.session_state.hoy_mensaje,config)
+    else:
+        _actualizar(repo)
+    aviso_cierre(repo)
 
 
 def configurar_hoy(repo,row):

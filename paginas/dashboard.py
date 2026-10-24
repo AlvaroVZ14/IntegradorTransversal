@@ -2,21 +2,21 @@
 
 import pandas as pd
 import streamlit as st
-from time import time
 
 from mente_futuro.domain import SERVICES, TOPICS, code, csv_bytes, money, today
 from servicios.dashboard import AGRUPACIONES, RANGOS, ajustar_rango, datos_dashboard, rango_rapido
 from utils.estados import etiqueta_estado
 from utils.permisos import require_admin
 from utils.responsive import es_pantalla_movil
-from servicios.dashboard_cache import cargar_dashboard, invalidar_dashboard
-from utils.componentes import (chips_activos, dato_destacado, esqueletos, estado_vacio, encabezado_pagina,
+from utils.componentes import (chips_activos, dato_destacado, estado_vacio, encabezado_pagina,
                                tarjeta_grafico, tarjeta_kpi, badge_estado, leyenda_estados, tabla_registros)
 from utils.graficos_dashboard import (barras_horizontales, distribucion, embudo_estados, frase_destacada,
                                      modalidades, origenes, reparto, solicitudes_vs_ventas,
                                      tematicas_dona, ventas_por_periodo)
 from utils.estilos import AZUL
 from mente_futuro.ui import show_error, logout
+from servicios.en_vivo import carga_inicial, estado
+from utils.en_vivo import indicador
 
 
 def _normalizar():
@@ -94,30 +94,25 @@ def _mostrar(fig, key, mensaje=None):
     if fig is None:
         estado_vacio(mensaje or "Aún no hay solicitudes en este período. Prueba con un rango más amplio.")
     else:
+        fig.update_layout(uirevision=key)
         st.plotly_chart(fig, width="stretch", theme=None, key=key,
                         config={"displayModeBar":False,"responsive":True,"scrollZoom":False})
 
 
-def _contenido_dashboard(repo):
+def _contenido_dashboard(repo, filtros_activos):
     require_admin(repo)
-    hero = st.container()
-    start, end, grouping, service, topic = filtros()
-    with hero:
-        encabezado_pagina("Una mirada a tu negocio", f"{grouping} · {start:%d/%m/%Y} – {end:%d/%m/%Y}",
-                          "DASHBOARD", "✦", acciones=lambda: st.button(
-                              "Actualizar", key="dashboard_actualizar", on_click=invalidar_dashboard,
-                              icon=":material/refresh:", width="stretch"))
-    loading = st.empty()
-    loading.markdown(esqueletos(), unsafe_allow_html=True)
-    try:
-        with st.spinner("Preparando tu tablero…"):
-            cases, sales = cargar_dashboard(repo)
-            data = datos_dashboard(cases, sales, start, end, grouping, service, topic)
-    finally:
-        loading.empty()
-    minutos=max(0,int((time()-st.session_state.get("dashboard_loaded_at",time()))//60))
-    st.caption(f"Actualizado hace {minutos} min",help="Se actualiza automáticamente cada 30 segundos; la consulta conserva su caché de 60 segundos y se invalida después de escribir.")
-    reduced = st.session_state.get("dashboard_reduced_motion",False)
+    start, end, grouping, service, topic = filtros_activos
+    repetida = estado('dashboard').get('intentado', False)
+    with carga_inicial('dashboard', 'Preparando tu tablero…'):
+        from servicios.en_vivo import cargar
+        lectura = cargar(repo, 'dashboard')
+    indicador('dashboard', publicar=True)
+    if 'datos' not in lectura:
+        st.info('Aún no pudimos conectar. La información aparecerá cuando vuelva la conexión.')
+        return
+    cases, sales = lectura['datos']['casos'], lectura['datos']['ventas']
+    data = datos_dashboard(cases, sales, start, end, grouping, service, topic)
+    reduced = repetida or st.session_state.get("dashboard_reduced_motion",False)
     previous_start, previous_end = data["previous_range"]
     st.caption(f"Comparado con {previous_start:%d/%m/%Y} – {previous_end:%d/%m/%Y}", help=
         "Bloque anterior con igual cantidad de períodos completos. El rango actual puede ser parcial; si la base es cero no se inventa un porcentaje.")
@@ -198,10 +193,10 @@ def _contenido_dashboard(repo):
     st.caption("CLP · Ventas por fecha de aceptación · Solicitudes en hora de Chile · Anuladas excluidas.")
 
 
-@st.fragment(run_every="30s")
-def _actualizar_dashboard(repo):
+@st.fragment(run_every="60s")
+def _actualizar_dashboard(repo, filtros_activos):
     try:
-        _contenido_dashboard(repo)
+        _contenido_dashboard(repo, filtros_activos)
     except Exception as error:
         show_error(error,"No pudimos cargar la información. Reintenta en unos momentos.")
         if st.button("Volver al ingreso",key="dashboard_error_login"):
@@ -210,7 +205,13 @@ def _actualizar_dashboard(repo):
 
 def dashboard_page(repo):
     require_admin(repo)
-    _actualizar_dashboard(repo)
+    hero = st.container()
+    activos = filtros()
+    start, end, grouping, _, _ = activos
+    with hero:
+        encabezado_pagina("Una mirada a tu negocio", f"{grouping} · {start:%d/%m/%Y} – {end:%d/%m/%Y}",
+                          "DASHBOARD", "✦", acciones=lambda: indicador('dashboard'))
+    _actualizar_dashboard(repo, activos)
 
 
 if __name__ == "__main__":

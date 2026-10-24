@@ -89,6 +89,7 @@ class EditorUITests(unittest.TestCase):
         self.assertEqual(repo.draft_rows[cid]['datos']['textos']['objetivos'],'Objetivos ficticios editados.')
         fresh=AppTest.from_file(str(ROOT/'app.py'),default_timeout=20)
         fresh.session_state['auth_client']=repo.client;fresh.run();ir_a(fresh,'Casos y cotizaciones')
+        by_label(fresh.selectbox,'Abrir detalle').set_value(cid).run()
         self.assert_clean(fresh)
         self.assertEqual(by_label(fresh.text_area,'Objetivos').value,'Objetivos ficticios editados.')
         by_label(fresh.button,'Generar cotización').click().run()

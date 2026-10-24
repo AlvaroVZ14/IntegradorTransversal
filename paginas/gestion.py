@@ -13,6 +13,8 @@ from utils.estados import etiqueta_estado, etiqueta_opcion_estado
 from utils.componentes import (badge_estado, leyenda_estados, tabla_registros, encabezado_pagina,
                                tarjeta_kpi, titulo_seccion, cargando_datos)
 from servicios.lecturas_locales import leer_con_respaldo
+from servicios.en_vivo import cargar, carga_inicial
+from utils.en_vivo import indicador as indicador_en_vivo
 
 
 def _lectura(repo,clave,consulta):
@@ -189,10 +191,25 @@ def sale_form(repo, case, quotes):
                 show_error(error)
 
 
-def cases_content(repo):
+def _abrir_detalle():
+    st.session_state.caso_abierto = st.session_state.get('selected_case')
+    st.session_state.caso_navegar = True
+
+
+def _cerrar_detalle():
+    st.session_state.pop('caso_abierto', None)
+    st.session_state.pop('selected_case', None)
+
+
+def _listado_casos(repo):
     require_admin(repo)
-    with cargando_datos("Buscando tus casos…"):
-        cases = _lectura(repo,"casos",repo.cases)
+    with carga_inicial('casos', 'Buscando tus casos…'):
+        lectura = cargar(repo, 'casos')
+    indicador_en_vivo('casos', publicar=True, pausado=bool(st.session_state.get('caso_abierto')))
+    if 'datos' not in lectura:
+        st.info('Aún no pudimos conectar. El listado aparecerá cuando vuelva la conexión.')
+        return
+    cases = lectura['datos']['casos']
     indicadores = [
         ("Casos registrados",len(cases),"▤","azul",None,"casos_total"),
         ("Por revisar",sum(x["estado"] in ("Solicitud","En revisión") for x in cases),"◷","morado","Solicitudes nuevas y solicitudes en revisión. No incluye casos ya cotizados.","casos_revisar"),
@@ -217,10 +234,37 @@ def cases_content(repo):
         st.download_button("Exportar listado CSV",csv_bytes(frame),file_name="casos-mente-y-futuro.csv",mime="text/csv")
     st.divider()
     options = {c["id"]:c for c in filtered}
-    if st.session_state.get("selected_case") not in options:
-        st.session_state.selected_case = next(iter(options))
-    selected = st.selectbox("Abrir detalle",list(options),format_func=lambda x:f"{code(options[x])} · {options[x]['cliente']}",key="selected_case")
-    case = options[selected]
+    if st.session_state.get('selected_case') not in options:
+        st.session_state.selected_case = None
+    st.selectbox("Abrir detalle",list(options),index=None,placeholder='Selecciona un caso',
+                 format_func=lambda x:f"{code(options[x])} · {options[x]['cliente']}",
+                 key="selected_case",on_change=_abrir_detalle)
+
+
+@st.fragment(run_every='60s')
+def _listado_en_vivo(repo):
+    require_admin(repo)
+    if st.session_state.pop('caso_navegar', False):
+        st.rerun(scope='app')
+    _listado_casos(repo)
+
+
+def cases_content(repo):
+    require_admin(repo)
+    seleccionado=st.session_state.get('selected_case')
+    if seleccionado:
+        st.session_state.caso_abierto=seleccionado
+        st.session_state.pop('caso_navegar', None)
+    if not st.session_state.get('caso_abierto'):
+        _listado_en_vivo(repo)
+        return
+    # No se registra un timer de listado mientras hay un detalle abierto.
+    _listado_casos(repo)
+    seleccionado=st.session_state.get('caso_abierto')
+    if not seleccionado:return
+    st.button('Volver al listado',key='caso_volver_listado',on_click=_cerrar_detalle,
+              icon=':material/arrow_back:')
+    case = _lectura(repo, 'detalle:'+seleccionado, lambda:repo.get_case(seleccionado))
     st.subheader(f"{code(case)} · {case['servicio']}")
     st.markdown(badge_estado(case["estado"]),unsafe_allow_html=True)
     st.write("")
@@ -229,7 +273,10 @@ def cases_content(repo):
         cotizar=st.session_state.pop('abrir_cotizacion',None)==case['id']
         if st.session_state.pop('abrir_datos_caso',False):cotizar=False
         venta=st.session_state.pop('abrir_venta',None)==case['id']
-        detail_tab, quote_tab, sale_tab = st.tabs(["Datos y seguimiento","Cotizaciones","Venta"],default='Venta' if venta else 'Cotizaciones' if cotizar else None)
+        tab_key='caso_pestana_'+case['id']
+        if venta:st.session_state[tab_key]='Venta'
+        elif cotizar:st.session_state[tab_key]='Cotizaciones'
+        detail_tab, quote_tab, sale_tab = st.tabs(["Datos y seguimiento","Cotizaciones","Venta"],key=tab_key,on_change='rerun')
         with detail_tab:
             edit_case(repo,case)
         with quote_tab:
@@ -297,9 +344,12 @@ def tariffs_content(repo):
 
 def cases_page(repo):
     require_admin(repo)
-    encabezado_pagina("Casos y cotizaciones", "Cada solicitud, su propuesta y el siguiente paso.", "SEGUIMIENTO", "▤")
+    encabezado_pagina("Casos y cotizaciones", "Cada solicitud, su propuesta y el siguiente paso.", "SEGUIMIENTO", "▤",
+                      acciones=lambda:indicador_en_vivo('casos'))
     configurar=st.session_state.pop('abrir_configuracion',False)
-    cases_tab, tariffs_tab, config_tab = st.tabs(["Registro de casos", "Tarifas y servicios","Configuración"],default='Configuración' if configurar else None)
+    if configurar:st.session_state.casos_pestana='Configuración'
+    cases_tab, tariffs_tab, config_tab = st.tabs(["Registro de casos", "Tarifas y servicios","Configuración"],
+                                               key='casos_pestana',on_change='rerun')
     with cases_tab:
         cases_content(repo)
     with tariffs_tab:

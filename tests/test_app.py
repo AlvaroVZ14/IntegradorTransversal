@@ -50,6 +50,13 @@ class FakeRepository:
     def owner_only(self):
         if not self.is_owner: raise PermissionError('Solo dueña')
     def cases(self): return deepcopy(self.case_rows)
+    def live_snapshot(self,vista):
+        self.owner_only()
+        data={'casos':deepcopy(self.case_rows)}
+        if vista in ('dashboard','hoy'):data['ventas']=deepcopy(self.sale_rows)
+        if vista=='hoy':data.update(cotizaciones=deepcopy(self.quote_rows),eventos=deepcopy(self.event_rows),
+            envios=deepcopy(self.email_rows),configuracion=deepcopy(self.settings_row['datos']))
+        return data
     def profiles(self): return [dict(id='client',nombre='Cliente',email='client@example.cl',rol='cliente')]
     def tariffs(self): return deepcopy(self.tariff_rows)
     def quotes(self,case_id): return [deepcopy(q) for q in self.quote_rows if q['caso_id']==case_id]
@@ -360,15 +367,16 @@ class AppTests(unittest.TestCase):
     def test_dashboard_refresh_invalidates_session_cache(self):
         from unittest.mock import Mock
         app,repo=self.setup_app()
-        repo.cases=Mock(wraps=repo.cases)
+        repo.live_snapshot=Mock(wraps=repo.live_snapshot)
         app.run()
         ir_a(app,'Dashboard')
-        self.assertEqual(repo.cases.call_count,2)
+        self.assertEqual(repo.live_snapshot.call_count,2)
         by_label(app.selectbox,'Temática').set_value('Liderazgo').run()
-        self.assertEqual(repo.cases.call_count,2)
-        by_label(app.button,'Actualizar').click().run()
+        self.assertEqual(repo.live_snapshot.call_count,2)
+        app.session_state['dashboard_revision']=1
+        app.run()
         self.assert_clean(app)
-        self.assertEqual(repo.cases.call_count,3)
+        self.assertEqual(repo.live_snapshot.call_count,3)
 
     def test_dashboard_visual_has_secondary_charts_and_truthful_partition(self):
         app,repo=self.setup_app()
@@ -422,6 +430,9 @@ class AppTests(unittest.TestCase):
         self.create_request(app)
         original=deepcopy(repo.case_rows[0])
         repo.case_rows=[dict(original,id=f'ficticio-{i}',numero=i+1,estado=s) for i,s in enumerate(STATES)]
+        app.session_state['dashboard_revision']=app.session_state['dashboard_revision']+1
+        app.session_state['selected_case']=None
+        app.session_state['caso_abierto']=None
         app.run()
         self.assert_clean(app)
         self.assertEqual(by_label(app.metric,'Por revisar').value,'2')
@@ -435,14 +446,14 @@ class AppTests(unittest.TestCase):
 
     def test_technical_failure_is_friendly_and_session_can_exit(self):
         app,repo=self.setup_app()
-        repo.cases=lambda: (_ for _ in ()).throw(RuntimeError('SELECT secret FROM mf_casos; backend stacktrace'))
+        repo.live_snapshot=lambda _: (_ for _ in ()).throw(RuntimeError('SELECT secret FROM mf_casos; backend stacktrace'))
         app.run()
         ir_a(app,'Dashboard')
         self.assertFalse(app.exception)
-        self.assertTrue(any('No pudimos cargar' in x.value for x in app.error))
+        self.assertTrue(any('Aún no pudimos conectar' in x.value for x in app.info))
         visible=' '.join(x.value for x in app.markdown)+ ' '.join(x.value for x in app.error)
         self.assertNotIn('SELECT secret',visible)
-        self.assertTrue(any(x.label=='Volver al ingreso' for x in app.button))
+        self.assertTrue(any(x.label=='Cerrar sesión' for x in app.button))
 
     def test_each_private_page_has_one_shared_header(self):
         app,repo=self.setup_app()
@@ -511,7 +522,7 @@ class AppTests(unittest.TestCase):
         app,_=self.setup_app()
         app.run()
         ir_a(app,'Dashboard')
-        self.assertEqual(len([b for b in app.button if b.label=='Actualizar']),1)
+        self.assertEqual(len([b for b in app.button if b.label=='Actualizar']),0)
         ir_a(app,'Nueva solicitud')
         self.assertFalse(any(b.label in ['Actualizar','Actualizar información'] for b in app.button))
         by_label(app.button,'Cerrar sesión').click().run()
@@ -590,6 +601,7 @@ class AppTests(unittest.TestCase):
         fresh=AppTest.from_file(str(ROOT/'app.py'),default_timeout=20)
         fresh.session_state['auth_client']=repo.client
         fresh.run();ir_a(fresh,'Casos y cotizaciones')
+        by_label(fresh.selectbox,'Abrir detalle').set_value(repo.case_rows[0]['id']).run()
         self.assert_clean(fresh)
         self.assertEqual(by_label(fresh.text_input,'Contacto').value,'Daniela Fuentes')
 

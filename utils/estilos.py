@@ -260,3 +260,12 @@ ESTILOS_BASE += "".join(
 
 # Los componentes v2 tienen raíz propia; estos estilos siguen centralizados aquí.
 CSS_COPIAR = 'button{min-height:44px;border-radius:12px;padding:10px 18px;border:1px solid #3D6FE0;background:white;color:#0B2545;cursor:pointer}button:focus-visible{outline:3px solid #FFCC00;outline-offset:3px}'
+CSS_EN_VIVO = """
+.live{display:inline-flex;align-items:center;gap:8px;border-radius:22px;padding:9px 12px;
+background:#fff;color:#0B2545;font:500 12px Inter,sans-serif;min-height:26px;line-height:1.5}
+.live::before{content:'';width:8px;height:8px;flex-shrink:0;border-radius:50%;background:#198754;
+animation:mfy-live-pulse 2s ease-in-out infinite}
+.live.offline{background:#fff7d6}.live.offline::before{background:#b77900;animation:none}
+@keyframes mfy-live-pulse{50%{box-shadow:0 0 0 4px #19875420}}
+@media(prefers-reduced-motion:reduce){.live::before{animation:none}}
+"""
