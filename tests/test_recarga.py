@@ -45,13 +45,13 @@ class RecargaTests(unittest.TestCase):
         app=AppTest.from_string("import streamlit as st\nst.navigation([st.Page(lambda:st.write('Ingreso'),title='Ingresar',default=True)],position='hidden').run()",default_timeout=25)
         self.assertGreater(recargar(app,'dashboard'),0)
 
-    def test_each_url_without_session_shows_public_form_and_remembers_destination(self):
+    def test_each_url_without_session_shows_login_and_remembers_destination(self):
         for path,title in [('hoy','Hoy'),('nueva-solicitud','Nueva solicitud'),('casos','Casos y cotizaciones'),('compartir','Compartir'),('dashboard','Dashboard'),('estado','Estado')]:
             app,_=self.app()
             self.assertEqual(recargar(app,path),0)
             self.assertFalse(app.exception);self.assertFalse(app.error)
             self.assertEqual(app.session_state['destino_tras_login'],title)
-            self.assertTrue(any(b.label=='Siguiente' for b in app.button))
+            self.assertTrue(any(b.label=='Ingresar a mi espacio' for b in app.button))
             self.assertFalse(menu_visible(app))
 
     def test_each_url_admin_and_client_and_unknown_paths(self):
@@ -80,14 +80,15 @@ class RecargaTests(unittest.TestCase):
         self.assertFalse(any(b.label=='Ingresar a mi espacio' for b in app.button))
         repo.client.auth.refresh_session.assert_called_once_with('refresh-ficticio')
 
-    def test_client_cookie_never_restores_client_session(self):
-        app,repo=self.app()
-        repo.profile['rol']='cliente'
+    def test_client_cookie_restores_only_client_form(self):
+        app,repo=self.app('cliente')
+        del app.session_state['auth_client']
         repo.client.auth.refresh_session=Mock(return_value=SimpleNamespace(session=SimpleNamespace(refresh_token='ficticio')))
         cookie=json.dumps({'refresh_token':'refresh-ficticio','expires':time()+300})
         with patch('utils.sesion_cookie.cookie_inicial',return_value=cookie),patch('servicios.repositorio.public_client',return_value=repo.client):
             self.assertEqual(recargar(app,'dashboard'),0)
-        self.assertNotIn('auth_client',app.session_state)
+        self.assertIn('auth_client',app.session_state)
+        self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
         self.assertTrue(any(b.label=='Siguiente' for b in app.button))
 
     def test_network_error_during_restore_keeps_loading_and_cookie(self):

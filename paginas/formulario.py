@@ -31,6 +31,13 @@ class Formulario:
                 st.warning('No pudimos cargar las sugerencias. Puedes completar los datos a mano.')
 
     def cambio(self,campo):
+        # Un logout o cambio de entrada puede desmontar los widgets mientras
+        # llega un on_change pendiente. No reactivar borradores de otra sesión.
+        actual=st.session_state.get('formularios',{}).get(self.scope)
+        if (self.prefix+campo not in st.session_state or actual is None or
+            actual.get('id')!=self.b.get('id')):return
+        # El callback puede conservar una copia previa del mismo borrador.
+        self.b=actual;self.v=actual['values']
         valor=st.session_state[self.prefix+campo];recibido=valor
         if isinstance(valor,date):valor=valor.isoformat()
         if campo=='rut':valor=formatear_rut(valor)
@@ -267,7 +274,7 @@ class Formulario:
             if st.button('Registrar otra solicitud' if self.interno else 'Enviar otra solicitud',key=self.prefix+'otra',width='stretch'):
                 st.session_state.formulario_recibos.pop(self.scope,None);st.rerun()
 
-    def render(self):
+    def render(self,volver_a_app=False):
         with st.container(key='mfy_formulario_interno' if self.interno else 'mfy_public'):
             self.cabecera()
             recibo=st.session_state.get('formulario_recibos',{}).get(self.scope)
@@ -289,11 +296,14 @@ class Formulario:
                 if correo:
                     from urllib.parse import quote
                     st.markdown(f'<p class="mfy-public-contact">También puedes escribirnos a <a href="mailto:{quote(correo,safe="@.")}">{escape(correo)}</a>.</p>',unsafe_allow_html=True)
-                if st.button('Acceso del equipo y cuentas',key='ff_acceso',type='tertiary',width='stretch'):
-                    st.query_params['vista']='acceso';st.rerun()
+                if st.button('Volver a la app' if volver_a_app else 'Acceso del equipo y cuentas',key='ff_acceso',type='tertiary',width='stretch'):
+                    st.query_params.clear()
+                    if volver_a_app:st.session_state.pending_navigation='Hoy'
+                    else:st.query_params['vista']='acceso'
+                    st.rerun()
 
 
-def formulario(modo=None,repo=None):
+def formulario(modo=None,repo=None,*,volver_a_app=False):
     real=servicio.modo_servidor(repo)
     if modo is not None and modo!=real:raise PermissionError('El modo del formulario depende de tu sesión.')
-    Formulario(repo).render()
+    Formulario(repo).render(volver_a_app=volver_a_app)

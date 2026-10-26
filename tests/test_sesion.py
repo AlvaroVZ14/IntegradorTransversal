@@ -15,7 +15,7 @@ class SesionTests(unittest.TestCase):
             self.assertIsNone(leer_cookie(value,ahora=100))
         self.assertEqual(leer_cookie(json.dumps({'refresh_token':'token-ficticio','expires':200}),100)['expires'],200)
 
-    def test_restore_rechecks_auth_and_admin_profile(self):
+    def test_restore_rechecks_auth_and_role_for_both_accounts(self):
         from time import time
         cookie=json.dumps({'refresh_token':'token-ficticio','expires':time()+300})
         for role in ['admin','cliente']:
@@ -23,7 +23,8 @@ class SesionTests(unittest.TestCase):
             client.auth.get_user.return_value=SimpleNamespace(user=SimpleNamespace(id='persona-ficticia'))
             client.table.return_value.select.return_value.eq.return_value.execute.return_value.data=[{'id':'persona-ficticia','rol':role}]
             result=restaurar(cookie,lambda:client)
-            self.assertEqual(result is not None,role=='admin')
+            self.assertIsNotNone(result)
+            self.assertEqual(result[2]['rol'],role)
             client.auth.refresh_session.assert_called_once_with('token-ficticio')
             client.auth.get_user.assert_called_once()
 
@@ -37,7 +38,7 @@ class SesionTests(unittest.TestCase):
         from utils.sesion_cookie import mantener_sesion_activa
         session=SimpleNamespace(refresh_token='rotado-ficticio')
         client=SimpleNamespace(auth=SimpleNamespace(get_session=lambda:session))
-        for role,expected in [('admin',1),('cliente',0)]:
+        for role,expected in [('admin',1),('cliente',1)]:
             state={'auth_client':client,'_repo_actual':SimpleNamespace(profile={'rol':role}),
                 '_cookie_token_confirmado':'anterior-ficticio'}
             with patch('utils.sesion_cookie.st.session_state',state),patch('utils.sesion_cookie.st.rerun') as rerun:

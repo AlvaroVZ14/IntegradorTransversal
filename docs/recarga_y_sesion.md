@@ -1,5 +1,7 @@
 # Recarga, rutas y sesión administrativa
 
+> Documento histórico de la primera corrección. Desde el 26/10/2026 la sesión persistente incluye también Cliente y el formulario público tiene una entrada independiente. Consulta [el comportamiento vigente y sus pruebas](entradas_y_sesion.md). La cookie administrativa anterior se migra al formato nuevo.
+
 ## Causa confirmada
 
 El `app.py` anterior registraba únicamente Ingresar cuando faltaba

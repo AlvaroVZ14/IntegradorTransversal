@@ -2,7 +2,7 @@
 
 Aplicación Streamlit para solicitudes, casos, tarifas, cotizaciones y ventas, con Supabase Auth y PostgreSQL. Usa el logo original y los colores celeste, violeta y amarillo. No incluye marketing ni captación de clientes.
 
-**Entrada directa:** la URL base y `/?vista=solicitud` abren el formulario sin cuenta. `/?vista=acceso` abre el login. Público, cliente e interno comparten [un formulario de tres pasos](docs/formulario_unificado.md), con sus diferencias de permisos. La guía incluye el SQL nuevo, SMTP de confirmación, avisos a la dueña y pruebas.
+**Dos entradas:** la URL base muestra el login o recupera la sesión de Administración/Cliente. `/?vista=solicitud` abre siempre el formulario público, incluso con una cuenta abierta. `/?vista=acceso` abre el login. [Entradas, sesión persistente y resultados de pruebas](docs/entradas_y_sesion.md). Público, cliente e interno conservan [el formulario compartido](docs/formulario_unificado.md).
 
 ## Las tres secciones
 

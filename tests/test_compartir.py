@@ -113,11 +113,12 @@ class CompartirUITests(TestCase):
         for rol in (None,'cliente'):
             app=self.app(rol)
             self.assertFalse(app.exception);self.assertFalse(app.error);self.assertFalse(app.get('download_button'))
-            self.assertNotIn('Compartir',menu_visible(app));self.assertTrue(any(b.label=='Siguiente' for b in app.button))
+            self.assertNotIn('Compartir',menu_visible(app))
+            self.assertTrue(any(b.label==('Ingresar a mi espacio' if rol is None else 'Siguiente') for b in app.button))
 
     def test_canal_no_da_privilegios_y_se_conserva_en_los_pasos(self):
         app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=30)
-        app.query_params.update(canal='instagram',modo='interno');app.run()
+        app.query_params.update(vista='solicitud',canal='instagram',modo='interno');app.run()
         app.text_input(key='publico_contacto').set_value('Camila Ficticia')
         app.text_input(key='publico_email').set_value('camila@example.test')
         app.button(key='publico_siguiente').click().run()
@@ -131,5 +132,6 @@ class CompartirUITests(TestCase):
         app.session_state['auth_client']=self.repo.client
         app.query_params.update(vista='solicitud',canal='whatsapp',modo='interno');app.run()
         self.assertFalse(app.exception);self.assertFalse(app.error)
-        self.assertEqual(app.session_state['formularios']['cliente:owner']['canal_captacion'],'whatsapp')
-        self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
+        self.assertEqual(app.session_state['formularios']['publico:visitante']['canal_captacion'],'whatsapp')
+        self.assertFalse(app.sidebar.children)
+        self.assertFalse(app.text_input(key='publico_contacto').disabled)

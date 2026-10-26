@@ -46,13 +46,14 @@ class FormularioUITests(TestCase):
         p=patch('servicios.repositorio.Repository',return_value=repo);p.start();self.addCleanup(p.stop)
         app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=30)
         if modo!='publico':app.session_state['auth_client']=repo.client
+        else:app.query_params['vista']='solicitud'
         return app,repo
 
     def assert_limpio(self,app):
         self.assertFalse(app.exception);self.assertFalse(app.error)
 
-    def test_entrada_base_publica_acceso_opcional_y_ataques_url(self):
-        app,_=self.app();app.query_params.update(modo='interno',vista='hoy',pagina='Dashboard');app.run()
+    def test_entrada_publica_acceso_opcional_y_ataques_url(self):
+        app,_=self.app();app.query_params.update(modo='interno',vista='solicitud',pagina='Dashboard');app.run()
         self.assert_limpio(app);self.assertFalse(menu_visible(app));self.assertFalse(app.dataframe)
         self.assertFalse(any(s.label=='Origen de la solicitud' for s in app.selectbox))
         self.assertTrue(any(b.label=='Siguiente' for b in app.button))

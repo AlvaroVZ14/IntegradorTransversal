@@ -28,11 +28,18 @@ async function comprobar(anterior){
   await as('','anon');
   const cat=(await db.query('select mf_catalogo_solicitudes() r')).rows[0].r;
   assert.equal(cat.servicios.length,5);assert.equal(cat.tematicas.length,6);
+  for(const tabla of ['mf_casos','mf_perfiles','mf_cotizaciones','mf_ventas','mf_tarifas','mf_configuracion']){
+   await assert.rejects(db.query('select * from '+tabla+' limit 1'));
+  }
+  await assert.rejects(db.query('select registrar_solicitud($1,$2::jsonb)',[randomUUID(),JSON.stringify(datos)]));
+  await assert.rejects(db.query('insert into mf_casos(id) values($1)',[randomUUID()]));
   await assert.rejects(db.query('select mf_tomar_avisos_solicitud()'));
   await assert.rejects(db.query('select mf_seguridad.insertar_solicitud($1,$2::jsonb,$3,true)',[randomUUID(),JSON.stringify(datos),admin]));
   const publicoId=randomUUID(),token=randomUUID();
   const publica=(await db.query("select registrar_solicitud_publica($1,$2,$3::jsonb,'') r",[publicoId,token,JSON.stringify(datos)])).rows[0].r;
   assert.deepEqual(Object.keys(publica),['codigo']);
+  await db.exec('reset role');
+  assert.equal((await db.query('select count(*)::int n from auth.users')).rows[0].n,3);
   await as(cliente);
   const c=(await guardar({...datos,contacto:'Nombre manipulado',email:'otro@example.test',honeypot:''})).rows[0].r;
   assert.deepEqual(Object.keys(c),['codigo']);

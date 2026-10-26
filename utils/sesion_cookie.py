@@ -6,25 +6,23 @@ from urllib.parse import unquote
 from uuid import uuid4
 import streamlit as st
 from streamlit.components.v2 import component
-from servicios.sesion import COOKIE,DIAS
+from servicios.sesion import COOKIE,DIAS,COOKIES_ANTERIORES
 from mente_futuro.presentation import LOGO
 
 
 def cookie_inicial():
-    value=st.context.cookies.get(COOKIE,'')
-    return unquote(value) if isinstance(value,str) else ''
+    for nombre in (COOKIE,*COOKIES_ANTERIORES):
+        value=st.context.cookies.get(nombre,'')
+        if isinstance(value,str) and value:return unquote(value)
+    return ''
 
 
 def ordenar_cookie(accion,token=None,expires=None):
     st.session_state['_cookie_command']=dict(id=str(uuid4()),action=accion,token=token,expires=expires)
 
 
-def recordar_admin(client,perfil):
-    if perfil.get('rol')!='admin':
-        if not st.session_state.get('_cookie_cliente_limpia'):
-            ordenar_cookie('clear');st.session_state['_cookie_cliente_limpia']=True
-            st.session_state.pop('_cookie_token_confirmado',None)
-        return
+def recordar_sesion(client,perfil):
+    if perfil.get('rol') not in ('admin','cliente'):raise PermissionError('Perfil no disponible')
     getter=getattr(client.auth,'get_session',None)
     if not getter:return
     session=getter()
@@ -41,7 +39,7 @@ def puente_cookie():
     acknowledged=st.session_state.get('_cookie_ack','')
     bridge=component('mfy_sesion_cookie',html='<span aria-hidden="true"></span>',
         js=Path(__file__).with_suffix('.js').read_text(encoding='utf-8'))
-    result=bridge(data=dict(command,ack=acknowledged),default={'ack':{}},
+    result=bridge(data=dict(command,ack=acknowledged,name=COOKIE,legacy=list(COOKIES_ANTERIORES)),default={'ack':{}},
         on_ack_change=lambda:None,key='mfy_sesion_cookie',height=0)
     ack=result.ack or {}
     if not command or command.get('id')==acknowledged:return True
@@ -74,7 +72,7 @@ def mantener_sesion_activa():
         session=getter()
         token=getattr(session,'refresh_token',None)
         repo=st.session_state.get('_repo_actual')
-        if (repo and repo.profile.get('rol')=='admin' and token
+        if (repo and repo.profile.get('rol') in ('admin','cliente') and token
             and token!=st.session_state.get('_cookie_token_confirmado')
             and not st.session_state.get('_cookie_command')):
             # El marco revalida el rol y escribe la cookie antes de dibujar datos.
@@ -84,3 +82,7 @@ def mantener_sesion_activa():
         logout()
     except Exception:
         st.caption('No pudimos renovar la sesión ahora. Reintentaremos cuando vuelva la conexión.')
+
+
+# Compatibilidad con importaciones anteriores; la nueva política incluye clientes.
+recordar_admin=recordar_sesion

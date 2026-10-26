@@ -1,6 +1,6 @@
 # Un formulario, tres modos
 
-La entrada base muestra el formulario sin iniciar sesión. `?vista=solicitud` sigue siendo válido. El enlace “Acceso del equipo y cuentas” abre `?vista=acceso`. Con sesión verificada de Administración, la raíz abre Hoy; con sesión cliente, abre el formulario de su cuenta, sin barra lateral.
+Actualización de navegación del 26/10/2026: la entrada base muestra el login o recupera la sesión; `?vista=solicitud` muestra siempre el formulario público, incluso con una cuenta abierta. El enlace “Acceso del equipo y cuentas” abre `?vista=acceso`. Con sesión verificada de Administración, la raíz abre Hoy; con sesión cliente, abre el formulario de su cuenta, sin barra lateral. Consulta [las entradas y la sesión persistente vigentes](entradas_y_sesion.md); la comparación previa de esta guía documenta la unificación anterior.
 
 No se toma el modo ni el rol desde la URL, el borrador o `user_metadata`. El rol se consulta en `mf_perfiles`. La cuenta administrativa existente se conserva; esta actualización no asigna administración a nadie.
 
@@ -80,7 +80,7 @@ Si no llega la confirmación, la app ofrece solicitar otro correo o enviar la so
 
 El registro incluye honeypot y límites de intentos en la interfaz, además de los límites de Auth en servidor. La restricción local se puede eludir: no se presenta como protección completa. Supabase admite [hCaptcha y Turnstile](https://supabase.com/docs/guides/auth/auth-captcha), pero no se activó CAPTCHA sin sus claves y componente de verificación. No habilitarlo en el panel hasta integrar el frontend correspondiente.
 
-Solo Administración conserva la cookie de sesión de siete días ya existente. No se añadieron tokens persistentes para clientes. Si un cliente pierde su sesión al recargar, verá el formulario público; su borrador de cuenta vuelve al iniciar sesión en la misma pestaña. Los borradores no contienen contraseñas ni tokens Auth, y no restauran el consentimiento.
+Desde el 26/10/2026, Administración y Cliente conservan una cookie de sesión de hasta siete días, con rol revalidado en Supabase. Una sesión inválida vuelve al login. El enlace público no utiliza esa sesión. Los borradores no contienen contraseñas ni tokens Auth, y no restauran el consentimiento. Detalle y límites en [la guía de sesión](entradas_y_sesion.md).
 
 ## 3. Avisos a la dueña: independientes de Auth
 
@@ -128,12 +128,12 @@ PGlite es solo de pruebas, bajo `tmp/db-test/node_modules`; si falta, instalar `
 
 | Prueba solicitada | Resultado esperado |
 |---|---|
-| (a) Raíz desde celular sin sesión | Formulario directo, sin login ni barra lateral; tres pasos y enlace discreto de acceso al pie. `?vista=solicitud` también funciona. |
+| (a) Raíz desde celular sin sesión | Login. Enviar solicitud sin cuenta abre `?vista=solicitud`: formulario sin barra lateral, tres pasos y enlace discreto de acceso al pie. |
 | (b) Crear cuenta | Texto “Tus datos quedan listos…”. Tras confirmar el correo, nombre y correo bloqueados, empresa editable, sin listados. Si falla SMTP no se simula ingreso y se ofrece continuar sin cuenta. |
 | (c) Entrar como cliente | Barra mínima con logo, nombre y Cerrar sesión; únicamente formulario. Guardar vincula con su UID real. Enviar otra conserva su identidad y limpia el resto. |
 | (c) Entrar como administración | Raíz abre Hoy, menú completo. Nueva solicitud usa el mismo componente y muestra ayudas internas y saltos entre pasos. |
 | (d) Metadatos `rol='admin'` | El perfil nuevo queda cliente; no recibe menú ni datos administrativos. La prueba SQL incluye otros indicadores falsos de administración. |
-| (e) Recargar cada ruta | Ningún diálogo Page not found. Administración restaura su sesión cuando la cookie es válida. Sin sesión se muestra público; `?vista=acceso` muestra login. |
+| (e) Recargar cada ruta | Ningún diálogo Page not found. Ambas cuentas restauran su sesión cuando la cookie es válida. Sin sesión se muestra login; `?vista=solicitud` sigue siendo público. |
 | (f) Correo ya registrado | Mensaje amable que ofrece iniciar sesión; no muestra listados de correos ni concede una sesión por una respuesta ambigua. |
 | (g) Tres modos lado a lado | Mismos campos comunes, etiquetas, controles, ancho y pasos. Solo cambian identidad bloqueada, logo, navegación y herramientas internas declaradas. Una prueba compara el contrato y otra los widgets realmente renderizados. |
 | (h) Cliente existente interno | Buscador precarga datos; vinculación por correo y selector manual siguen disponibles. Se puede corregir cualquier dato y aplicar o ignorar sugerencias. |
@@ -141,8 +141,8 @@ PGlite es solo de pruebas, bajo `tmp/db-test/node_modules`; si falta, instalar `
 | (h) Referido por colega | Aparece Referido por; se guarda su texto. Guardar y registrar otra mantiene el último origen. |
 | (h) RUT inválido | `12.345.678-9` produce un mensaje junto al campo y no se guarda. `12.345.678-5` sí pasa. Los tres formatos de teléfono se normalizan a `+56 9 1234 5678`. |
 | (h) Sin consentimiento externo | No se escribe nada. Tras consentir se recibe código y mensaje de 48 horas hábiles; el botón de envío queda deshabilitado. |
-| URL `?modo=interno`, `?vista=hoy`, `/dashboard` sin permisos | Público sin sesión o formulario cliente con sesión; nunca campos internos, tablas o Dashboard. |
-| Recarga a mitad del formulario | En la misma pestaña se recuperan campos y paso, sujeto al almacenamiento permitido por el navegador. Con sesión cliente perdida, se recupera su borrador después de ingresar nuevamente. |
+| URL `?modo=interno`, `?vista=hoy`, `/dashboard` sin permisos | Login sin sesión o formulario cliente con sesión; nunca campos internos, tablas o Dashboard. La entrada pública explícita conserva únicamente el formulario anónimo. |
+| Recarga a mitad del formulario | En la misma pestaña se recuperan campos y paso, sujeto al almacenamiento permitido por el navegador. La cookie válida recupera la sesión cliente; si venció, se pide ingresar nuevamente antes de retomar su borrador. |
 | Corte de red al guardar | Se conserva el borrador; el reintento utiliza el mismo UUID. Un envío confirmado no crea dos casos. |
 | Fallo del aviso a la dueña | El caso existe igualmente. Estado muestra pendiente/error/incierto según lo ocurrido; no se repiten correos inciertos automáticamente. |
 

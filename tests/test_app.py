@@ -429,7 +429,7 @@ class AppTests(unittest.TestCase):
         by_label(app.button,'Cerrar sesión').click().run()
         self.assert_clean(app)
         self.assertNotIn('auth_client',app.session_state)
-        self.assertTrue(any(x.label=='Siguiente' for x in app.button))
+        self.assertTrue(any(x.label=='Ingresar a mi espacio' for x in app.button))
 
     def test_product_navigation_identity_and_footer(self):
         for owner,role in [(True,'Administración'),(False,'Cliente')]:

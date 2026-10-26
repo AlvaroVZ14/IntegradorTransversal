@@ -29,12 +29,12 @@ def proteger_pagina(titulo,admin=False):
     repo=st.session_state.get('_repo_actual')
     if repo is None:
         st.session_state['destino_tras_login']=titulo
-        if st.query_params.get('vista')=='acceso':
-            from mente_futuro.ui import login
-            login()
-        else:
+        if st.query_params.get('vista')=='solicitud':
             from paginas.formulario import formulario
             formulario()
+        else:
+            from mente_futuro.ui import login
+            login()
         st.stop()
     if admin and not es_admin(repo.profile):
         st.session_state['pending_navigation']='Nueva solicitud'

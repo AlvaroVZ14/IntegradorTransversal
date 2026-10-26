@@ -2,7 +2,7 @@
 import streamlit as st
 from streamlit.components.v2 import component
 
-from utils.permisos import allowed_pages
+from utils.permisos import allowed_pages,es_admin
 
 PAGINAS = {
     "Hoy": ("paginas/hoy.py", "hoy", ":material/today:", "INICIO"),
@@ -26,6 +26,13 @@ def crear_paginas(perfil=None):
         pagina = st.Page(archivo, title=titulo, icon=icono, url_path=ruta)
         paginas[titulo] = pagina
     return list(paginas.values()), paginas
+
+
+def rutas_para_perfil(perfil,paginas):
+    """Destinos ejecutables del marco; independientes del registro de URLs."""
+    titulos=allowed_pages(perfil)
+    if es_admin(perfil):titulos.append('Estado')
+    return {titulo:paginas[titulo] for titulo in titulos}
 
 
 def resolver_ruta_desconocida():

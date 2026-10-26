@@ -33,8 +33,8 @@ def confirmar_enlace():
                 client=public_client()
                 resultado=client.auth.verify_otp({'token_hash':token,'type':'email'})
                 if not resultado.session:raise ValueError('No se confirmó la sesión.')
-                st.session_state.auth_client=client
-                st.session_state.inicio_tras_login=True
+                from servicios.sesion import iniciar_sesion
+                iniciar_sesion(client)
                 st.session_state.pop('_confirmacion_correo',None)
                 st.query_params.pop('vista',None)
                 st.rerun()

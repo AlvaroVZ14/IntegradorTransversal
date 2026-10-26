@@ -84,8 +84,8 @@ def _tarjeta_login():
                         client = public_client()
                         result = client.auth.sign_in_with_password({"email":email.strip(), "password":password})
                         if result.session:
-                            st.session_state.auth_client = client
-                            st.session_state.inicio_tras_login = True
+                            from servicios.sesion import iniciar_sesion
+                            iniciar_sesion(client)
                             st.rerun()
                     except AuthApiError:
                         st.error("No fue posible ingresar. Revisa tu correo, contraseña y confirmación de cuenta.")
@@ -121,8 +121,8 @@ def _tarjeta_login():
                         client = public_client()
                         result = client.auth.sign_up({"email":new_email.strip(), "password":new_password, "options":{"data":{"nombre":name.strip()}}})
                         if result.session:
-                            st.session_state.auth_client = client
-                            st.session_state.inicio_tras_login = True
+                            from servicios.sesion import iniciar_sesion
+                            iniciar_sesion(client)
                             st.rerun()
                         st.session_state['_signup_aviso']=new_email.strip()
                     except Exception as error:
@@ -136,5 +136,5 @@ def _tarjeta_login():
                     st.session_state['acceso_pestana']='Iniciar sesión'
                 st.button('Iniciar sesión con este correo',on_click=ingresar,width='stretch')
         st.markdown('<div class="note">Puedes enviar una solicitud sin cuenta. Crear una cuenta es opcional: deja tu nombre y correo listos para próximas solicitudes. Administración conserva su acceso de gestión.</div>', unsafe_allow_html=True)
-        if st.button('Continuar sin cuenta',type='tertiary',width='stretch'):
-            st.query_params.pop('vista',None);st.rerun()
+        if st.button('Enviar solicitud sin cuenta',type='tertiary',width='stretch'):
+            st.query_params['vista']='solicitud';st.rerun()

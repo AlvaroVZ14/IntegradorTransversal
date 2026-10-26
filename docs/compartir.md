@@ -64,7 +64,7 @@ Utiliza exclusivamente personas, empresas y correos ficticios en un entorno de p
 |---|---|
 | Administración entra | Compartir aparece en GESTIÓN; Hoy muestra “Comparte tu formulario”. Las páginas y funciones anteriores siguen disponibles. |
 | Cliente abre `/compartir` o fuerza `?pagina=Compartir` | Llega a Nueva solicitud, sin herramientas de compartir, configuración ni descargas QR. |
-| Visitante abre `/compartir` | Ve el formulario público, sin datos administrativos ni diálogo Page not found. |
+| Visitante abre `/compartir` | Ve el login, sin datos administrativos ni diálogo Page not found. Los enlaces generados con `?vista=solicitud` sí abren el formulario público. |
 | URL no configurada | Aviso de dirección detectada y opción para guardarla; si es local o no se detecta, se pide completar Configuración. |
 | Copiar cada uno de los seis enlaces | Confirmación “Enlace copiado ✓”. Abrirlo en una ventana privada muestra el formulario público sin login, con su parámetro de canal. |
 | Enviar desde cada canal | El caso muestra su canal; tras el refresco de Dashboard, el gráfico incorpora esa solicitud en el rango correspondiente. Origen sigue “Formulario web”. |

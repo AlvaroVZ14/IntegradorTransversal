@@ -3,7 +3,8 @@ import json
 from time import time
 
 DIAS=7
-COOKIE='mfy_admin_refresh_v1'
+COOKIE='mfy_session_refresh_v2'
+COOKIES_ANTERIORES=('mfy_admin_refresh_v1',)
 
 
 def leer_cookie(value,ahora=None):
@@ -23,7 +24,8 @@ def perfil_verificado(client):
     user=response.user if response else None
     if not user:raise PermissionError('Sesión no disponible')
     rows=client.table('mf_perfiles').select('*').eq('id',user.id).execute().data
-    if not rows:raise PermissionError('Perfil no disponible')
+    if not rows or rows[0].get('id')!=user.id or rows[0].get('rol') not in ('admin','cliente'):
+        raise PermissionError('Perfil no disponible')
     return user,rows[0]
 
 
@@ -34,7 +36,14 @@ def restaurar(value,factory):
     response=client.auth.refresh_session(cookie['refresh_token'])
     if not response or not response.session:return None
     user,perfil=perfil_verificado(client)
-    if perfil.get('rol')!='admin':
-        # Una cookie nunca convierte un cliente en administración.
-        return None
     return client,user,perfil,response.session,cookie['expires']
+
+
+def iniciar_sesion(client):
+    """Nuevo ingreso explícito: inicia su propio plazo y abandona el login."""
+    import streamlit as st
+    for key in ('_cookie_expires','_cookie_token_confirmado','_cookie_command','_cookie_ack','_restauracion_intentada'):
+        st.session_state.pop(key,None)
+    st.session_state.auth_client=client
+    st.session_state.inicio_tras_login=True
+    st.query_params.pop('vista',None)

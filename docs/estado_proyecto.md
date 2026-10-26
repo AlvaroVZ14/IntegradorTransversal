@@ -1,5 +1,7 @@
 # Estado del proyecto · 25/10/2026
 
+Actualización del 26/10/2026: la raíz ahora muestra login o recupera la sesión; `?vista=solicitud` es una entrada pública independiente, incluso con cuenta abierta. La persistencia de sesión incluye Administración y Cliente. [Informe vigente, archivos y pruebas](entradas_y_sesion.md). Lo que sigue registra la entrega anterior.
+
 ## Última entrega funcional
 
 Commit `fa14018`: Compartir con enlaces por canal, QR y atribución de solicitudes. Publicado en `origin/main`.
