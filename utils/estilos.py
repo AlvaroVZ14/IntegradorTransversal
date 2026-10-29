@@ -167,6 +167,8 @@ button:focus-visible,a:focus-visible,.mfy-table-wrap:focus-visible{outline:3px s
 /* stTabs/BaseWeb: mismo fondo y barra de selección de marca en todas las vistas. */
 .stTabs [data-baseweb="tab-list"]{gap:8px;background:var(--mfy-white);border-radius:12px;border:1px solid var(--mfy-border);padding:4px 8px;overflow-x:auto;}
 .stTabs [data-baseweb="tab"]{min-height:44px;border-radius:9px;padding:0 12px;color:var(--mfy-muted);}
+/* Streamlit 1.65 usa también stTab/role=tab, sin el atributo BaseWeb. */
+.stTabs [data-testid="stTab"]{min-height:44px;}
 .stTabs [data-baseweb="tab"][aria-selected="true"]{color:var(--mfy-text);background:var(--mfy-lavender-soft);font-weight:600;}
 .stTabs [data-baseweb="tab-highlight"]{height:3px;background:var(--mfy-gradient);border-radius:3px;}
 .stTabs [data-baseweb="tab-border"]{background:transparent;}
@@ -476,6 +478,13 @@ ESTILOS_BASE += """
 [data-testid="stMain"] :is(input,textarea,[role="combobox"],button,.mfy-public-progress){scroll-margin-top:80px;scroll-margin-bottom:110px;}
 [data-testid="stMain"] :is(input:not([type="checkbox"]):not([type="radio"]),textarea,[role="combobox"]){font-size:16px!important;}
 [data-baseweb="select"]>div{font-size:16px;}
+/* Auditoría táctil: contraseña, ayudas y flechas nativas no heredan stButton.
+   Se amplía su caja de interacción, conservando el icono y su comportamiento. */
+:is([data-testid="stMain"],[data-testid="stHeader"],[data-testid="stPopoverBody"]) button{min-height:44px;min-width:44px;}
+[data-testid="stMain"] [role="combobox"]{min-height:44px;}
+[data-testid="stMain"] [data-baseweb="tag"]{min-height:44px;height:auto;max-width:100%;}
+[data-testid="stPageLink-NavLink"]{min-height:44px;}
+[data-testid="stMain"] :is([data-testid="stMarkdownContainer"] p a,a[href^="mailto:"]){display:inline-flex;align-items:center;min-height:44px;max-width:100%;overflow-wrap:anywhere;}
 [data-testid="stMain"] :is([data-testid="stImage"],[data-testid="stImage"] img){max-width:100%;}
 .st-key-mfy_form_compartir_descargas [data-testid="stImage"]{margin-inline:auto;}
 .st-key-mfy_form_compartir_descargas img{height:auto;object-fit:contain;}
