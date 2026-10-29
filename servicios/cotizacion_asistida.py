@@ -20,6 +20,38 @@ def configuracion(datos=None):
     return {**deepcopy(CONFIG),**datos,'emisor':{**CONFIG['emisor'],**datos.get('emisor',{})}}
 
 
+def cargar_configuracion(repo):
+    """Completa una vez los valores iniciales, sin sobrescribir ajustes existentes.
+
+    La versión impide pisar una edición concurrente. El editor puede seguir
+    guardando borradores si esta escritura falla; nunca inventa datos del emisor.
+    """
+    row=repo.quote_settings()
+    datos=row.get('datos') or {}
+    config=configuracion(datos)
+    if config!=datos:
+        try:
+            repo.save_quote_settings(config,row['version'])
+        except Exception:
+            # Otra sesión pudo completar la configuración mientras se guardaba.
+            row=repo.quote_settings()
+            datos=row.get('datos') or {}
+            config=configuracion(datos)
+            return config,config==datos
+    return config,True
+
+
+def actualizar_emisor(borrador,config):
+    """El emisor pertenece a Ajustes; el resto del borrador sigue siendo propio.
+
+    Solo actúa sobre borradores. Los snapshots de versiones emitidas son inmutables.
+    """
+    emisor=deepcopy(config['emisor'])
+    if borrador.get('emisor')==emisor:return False
+    borrador['emisor']=emisor
+    return True
+
+
 def recomendar_tarifa(caso,tarifas):
     candidatas=[t for t in tarifas if t.get('activa',True) and t.get('servicio')==caso['servicio']]
     def distancia(t):

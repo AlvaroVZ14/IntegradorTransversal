@@ -8,8 +8,8 @@ import streamlit as st
 from mente_futuro.domain import MODALITIES,code,money,quote_total,today
 from mente_futuro.ui import flash,show_error
 from servicios.cotizacion_asistida import (SECCIONES,EMISOR,configuracion,prellenar,textos_plantilla,
-    recomendar_tarifa,faltantes,datos_emision)
-from servicios.documentos_cotizacion import generar_word,generar_pdf,contenido
+    recomendar_tarifa,faltantes,datos_emision,cargar_configuracion,actualizar_emisor)
+from servicios.documentos_cotizacion import generar_word,generar_pdf
 from utils.permisos import require_admin
 from utils.componentes import titulo_seccion
 from utils.cotizacion_borrador import capturar,TEXTOS
@@ -69,7 +69,7 @@ def editor_cotizacion(repo,caso):
     if caso['estado'] in ('Vendido','En ejecución','Finalizado','Cancelado'):
         st.info('Este caso está cerrado para nuevas cotizaciones. Puedes consultar las propuestas emitidas.')
         return
-    config=configuracion(repo.quote_settings()['datos'])
+    config,config_guardada=cargar_configuracion(repo)
     tarifas=repo.tariffs();plantillas=repo.program_templates()
     drafts=st.session_state.setdefault('cotizadores',{})
     if caso['id'] not in drafts:
@@ -79,6 +79,8 @@ def editor_cotizacion(repo,caso):
         drafts[caso['id']]=dict(datos=datos,version=row['version'] if row else 0,pendiente=not bool(row),
             guardado=bool(row),error=None,operacion=str(uuid4()))
     draft=drafts[caso['id']];d=draft['datos']
+    if actualizar_emisor(d,config):
+        draft.update(pendiente=True,reintento=0)
     capturar(repo,caso['id'],draft)
     _guardar(repo,caso['id'],draft)
     def campo(nombre,label,tipo='text_input',grupo=None,**kwargs):
@@ -91,11 +93,18 @@ def editor_cotizacion(repo,caso):
         st.markdown(f'<span id="cot-{nombre}"></span>',unsafe_allow_html=True)
         return getattr(st,tipo)(label,key=key,on_change=_editar,args=(repo,caso['id'],nombre,grupo),**kwargs)
     falta=faltantes(caso,d)
-    if falta:
-        st.warning('Antes de generar falta: '+', '.join(label for label,_ in falta)+'.')
-        if any(dest=='configuracion' for _,dest in falta):
-            if st.button('Completar datos del emisor',key='issuer_'+caso['id']):
-                st.session_state.abrir_configuracion=True;st.rerun()
+    falta_config=[label for label,dest in falta if dest=='configuracion']
+    falta_propuesta=[(label,dest) for label,dest in falta if dest!='configuracion']
+    if falta_config or not config_guardada:
+        if falta_config:
+            st.warning('Administración: completa en Ajustes (Configuración) los datos de la empresa: '
+                       +', '.join(falta_config)+'. El borrador se guarda; estos datos se necesitan para emitir el documento.')
+        else:
+            st.warning('No pudimos guardar los valores iniciales de Configuración. Tu borrador se conserva; revisa Ajustes o vuelve a intentarlo.')
+        if st.button('Ir a Ajustes (Configuración)',key='issuer_'+caso['id']):
+            st.session_state.abrir_configuracion=True;st.rerun()
+    if falta_propuesta:
+        st.warning('Antes de generar falta: '+', '.join(label for label,_ in falta_propuesta)+'.')
         if any(dest=='caso' for _,dest in falta):
             if st.button('Completar datos del caso',key='case_'+caso['id']):
                 st.session_state.abrir_datos_caso=True;st.rerun()
@@ -104,7 +113,7 @@ def editor_cotizacion(repo,caso):
                 tab='Importes' if dest=='importes' else 'Condiciones' if dest=='condiciones' else 'Programa'
                 if st.button('Ir a '+label,key='missing_'+caso['id']+label):
                     st.session_state['cot_tabs_'+caso['id']]=tab;st.rerun()
-    else:st.info('Prellenado automáticamente. Revisa y genera.')
+    elif not falta_config and config_guardada:st.info('Prellenado automáticamente. Revisa y genera.')
     _estado_borrador(repo,caso['id'])
     recomendada=recomendar_tarifa(caso,tarifas)
     opciones={t['id']:t for t in tarifas if t.get('activa',True) and t['servicio']==caso['servicio']}
@@ -142,7 +151,10 @@ def editor_cotizacion(repo,caso):
     origen=textos_plantilla(caso,t,plantilla_opciones.get(d.get('plantilla_id')))
     with st.container(key='mfy_form_quote'):
         titulo_seccion(2,'Tu propuesta a medida')
-        programa,importes,condiciones,vista=st.tabs(['Programa','Importes','Condiciones','Vista previa'],key='cot_tabs_'+caso['id'],on_change='rerun')
+        # Descartar la pestaña antigua conservada por una sesión abierta.
+        if st.session_state.get('cot_tabs_'+caso['id'])=='Vista previa':
+            st.session_state['cot_tabs_'+caso['id']]='Programa'
+        programa,importes,condiciones=st.tabs(['Programa','Importes','Condiciones'],key='cot_tabs_'+caso['id'],on_change='rerun')
         with programa:
             a,b,c=st.columns(3)
             with a:campo('modalidad','Modalidad de la propuesta','selectbox',options=MODALITIES)
@@ -161,20 +173,11 @@ def editor_cotizacion(repo,caso):
             with b:campo('descuento_pct','Descuento (%)','number_input',min_value=0.0,max_value=100.0,step=.5)
             with c:campo('iva_pct','Tratamiento de IVA *','selectbox',options=['Exento de IVA','IVA 19%'])
             campo('descuento_motivo','Motivo del descuento',max_chars=500)
-            st.metric('Total de la propuesta (CLP)',money(quote_total(d['base_clp'],d['descuento_pct'],d['iva_pct'])))
             st.caption('Los descuentos son manuales. La versión conservará estos valores al generar.')
         with condiciones:
             campo('valida_hasta','Válida hasta','date_input',format='DD/MM/YYYY')
             campo('condiciones','Condiciones comerciales','text_area',max_chars=5000,height=150)
-            if st.button('Actualizar datos del emisor desde Configuración',key='reload_issuer_'+caso['id']):
-                d['emisor']=deepcopy(config['emisor']);draft.update(pendiente=True,reintento=0);_guardar(repo,caso['id'],draft);st.rerun()
-            for k,label in EMISOR.items():st.caption(label+': '+str(d['emisor'].get(k) or 'Por completar'))
-        with vista:
-            st.subheader(caso['servicio']);st.write(d['detalle'])
-            for k,label in SECCIONES.items():
-                if d['mostrar'].get(k,True):st.markdown('**'+label+'**');st.write(d['textos'][k])
-            st.metric('Total previsto',money(quote_total(d['base_clp'],d['descuento_pct'],d['iva_pct'])))
-            st.write(d['condiciones']);st.caption('Vista previa de contenido. Word y PDF conservan el snapshot emitido.')
+            st.caption('Los datos de la empresa se leen automáticamente desde Configuración. Los totales se calculan al generar la cotización.')
         antiguo=st.button('Emitir y guardar cotización',key='emit_legacy_'+caso['id'])
     with st.container(key='mfy_generate'):
         generar=st.button('Generar cotización',type='primary',key='generate_'+caso['id'],width='stretch')
@@ -222,7 +225,7 @@ def configuracion_cotizador(repo):
         try:
             repo.save_quote_settings(dict(row['datos'],emisor=emisor,vigencia_dias=vigencia,condiciones=condiciones,
                 reserva_pct=reserva,remuneracion_pct=remuneracion,iva_default=iva),row['version'])
-            flash('Configuración guardada. Puedes actualizar el emisor de los borradores existentes; las versiones emitidas no cambian.')
+            flash('Configuración guardada. Los borradores leerán el emisor actualizado automáticamente; las versiones emitidas no cambian.')
         except Exception as error:show_error(error)
     from paginas.hoy import configurar_hoy
     configurar_hoy(repo,row)
