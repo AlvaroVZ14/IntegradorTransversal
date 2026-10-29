@@ -67,9 +67,6 @@ def barra_cuenta(repo,actual):
     with st.container(key='mfy_top_account'):
         with st.popover('Mi cuenta',icon=':material/account_circle:',help='Mi cuenta y cerrar sesión'):
             identidad_usuario(repo.profile.get('nombre'),repo.is_owner)
-            if repo.is_owner:
-                from utils.en_vivo import indicador
-                indicador({'Hoy':'hoy','Dashboard':'dashboard','Casos y cotizaciones':'casos'}.get(actual,'solicitud'),lateral=True)
             st.button('Cerrar sesión',key='logout',width='stretch',icon=':material/logout:',on_click=logout)
     # El menú nativo reduce enlaces a "N more"; el popover estándar da una
     # hamburguesa explícita, en español y con los mismos destinos autorizados.

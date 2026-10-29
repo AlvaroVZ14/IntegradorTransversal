@@ -229,7 +229,7 @@ def dashboard_page(repo):
     start, end, grouping, _, _ = activos
     with hero:
         encabezado_pagina("Una mirada a tu negocio", f"{grouping} · {start:%d/%m/%Y} – {end:%d/%m/%Y}",
-                          "DASHBOARD", "✦", acciones=lambda: indicador('dashboard'))
+                          "DASHBOARD", "✦")
     _actualizar_dashboard(repo, activos)
 
 

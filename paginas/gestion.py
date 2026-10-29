@@ -367,8 +367,7 @@ def tariffs_content(repo):
 
 def cases_page(repo):
     require_admin(repo)
-    encabezado_pagina("Casos y cotizaciones", "Cada solicitud, su propuesta y el siguiente paso.", "SEGUIMIENTO", "▤",
-                      acciones=lambda:indicador_en_vivo('casos'))
+    encabezado_pagina("Casos y cotizaciones", "Cada solicitud, su propuesta y el siguiente paso.", "SEGUIMIENTO", "▤")
     configurar=st.session_state.pop('abrir_configuracion',False)
     if configurar:st.session_state.casos_pestana='Configuración'
     cases_tab, tariffs_tab, config_tab = st.tabs(["Registro de casos", "Tarifas y servicios","Configuración"],

@@ -207,7 +207,7 @@ def hoy_page(repo):
     ahora=datetime.now(CHILE)
     nombre=((repo.profile.get('nombre') or '').split() or ['Administración'])[0]
     encabezado_pagina(f'{saludo(ahora.hour)}, {nombre}',f'{ahora:%d/%m/%Y · %H:%M} · Tus próximos pasos, en un solo lugar.',
-                      'HOY','☀',acciones=lambda:indicador('hoy'))
+                      'HOY','☀')
     if st.session_state.get('hoy_mensaje') or st.session_state.get('hoy_post_cierre'):
         # Conserva las tarjetas mientras se edita el mensaje, sin programar lecturas.
         _contenido(repo, pausado=True)
