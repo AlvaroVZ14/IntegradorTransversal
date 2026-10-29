@@ -245,6 +245,8 @@ def dashboard_page(repo):
         encabezado_pagina("Una mirada a tu negocio", f"{grouping} · {start:%d/%m/%Y} – {end:%d/%m/%Y}",
                           "DASHBOARD", "✦", mostrar_metricas=False)
     _actualizar_dashboard(repo, activos)
+    from paginas.reportes import panel_reportes
+    panel_reportes(repo)
 
 
 if __name__ == "__main__":
