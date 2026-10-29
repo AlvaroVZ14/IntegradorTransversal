@@ -118,7 +118,7 @@ def html_contenido_encabezado(titulo, subtitulo, etiqueta, icono):
             '<span class="mfy-hero-orbit" aria-hidden="true">'+ampolleta_svg()+'</span>')
 
 
-def encabezado_pagina(titulo, subtitulo, etiqueta, icono, acciones=None):
+def encabezado_pagina(titulo, subtitulo, etiqueta, icono, acciones=None, mostrar_metricas=True):
     """Un encabezado por página. acciones es una función que dibuja widgets nativos.
 
     Los botones conservan callbacks, foco y permisos de Streamlit. No se acepta
@@ -127,7 +127,7 @@ def encabezado_pagina(titulo, subtitulo, etiqueta, icono, acciones=None):
     vista={'HOY':'hoy','DASHBOARD':'dashboard','SEGUIMIENTO':'casos'}.get(str(etiqueta).upper())
     def contenido():
         st.markdown(html_contenido_encabezado(titulo, subtitulo, etiqueta, icono), unsafe_allow_html=True)
-        if vista:
+        if vista and mostrar_metricas:
             from utils.en_vivo import metricas_cabecera
             metricas_cabecera(vista)
         elif str(etiqueta).upper()=='SOLICITUDES':

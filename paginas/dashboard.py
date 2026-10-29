@@ -16,7 +16,7 @@ from utils.graficos_dashboard import (barras_horizontales, distribucion, embudo_
 from utils.estilos import AZUL
 from mente_futuro.ui import show_error, logout
 from servicios.en_vivo import carga_inicial, estado
-from utils.en_vivo import indicador, guardar_metricas
+from utils.en_vivo import indicador
 from utils.metricas_visuales import contexto_cohortes
 
 
@@ -113,7 +113,6 @@ def _contenido_dashboard(repo, filtros_activos):
         return
     cases, sales = lectura['datos']['casos'], lectura['datos']['ventas']
     data = datos_dashboard(cases, sales, start, end, grouping, service, topic)
-    guardar_metricas('dashboard',[('Ventas del período',money(data['total'])),('Nuevas solicitudes',data['requests_count'])])
     indicador('dashboard', publicar=True)
     reduced = repetida or st.session_state.get("dashboard_reduced_motion",False)
     previous_start, previous_end = data["previous_range"]
@@ -125,9 +124,10 @@ def _contenido_dashboard(repo, filtros_activos):
         number = f"{conversion/10:.1f}".rstrip("0").rstrip(".").replace(".",",")
         conversion_text = f"De cada 10 solicitudes, {number} terminaron en venta"
     cards = [
-        ("Ventas del período",money(data["total"]),"total","↗","azul",None,None),
-        ("Ventas cerradas",data["sales_count"],"sales_count","✓","azul",None,None),
-        ("Nuevas solicitudes",data["requests_count"],"requests_count","✉","morado",None,None),
+        ("Total vendido",money(data["total"]),"total","↗","azul",
+         "Suma de las ventas no anuladas por fecha de venta. La cantidad cuenta registros de venta, no casos en estado Cerrada.",
+         f"{data['sales_count']} {'venta registrada' if data['sales_count']==1 else 'ventas registradas'}"+
+         (f" · {_delta(data,'sales_count')} en cantidad" if _delta(data,'sales_count') else '')),
         ("Venta promedio",money(data["average"]) if data["average"] is not None else "—","average","◈","amarillo","Total vendido dividido por los casos vendidos en el período",None),
         ("Solicitudes que se vendieron",f"{conversion:.1f}%".replace(".",",") if conversion is not None else "—","conversion","◎","morado","Solicitudes creadas en el rango que tienen venta no anulada hasta su fecha final.",conversion_text),
         ("Ventas con pago pendiente",money(data["pending_payment"]),"pending_payment","◷","amarillo","Valor completo de las ventas no pagadas totalmente, incluidas las que tienen abonos; no es el saldo exacto por cobrar.",None),
@@ -141,14 +141,28 @@ def _contenido_dashboard(repo, filtros_activos):
               'requests_count':'Solicitudes recibidas por período','average':'Promedio de ventas por período',
               'conversion':'Solicitudes de cada período vendidas al fin del rango',
               'pending_payment':'Ventas actuales por cobrar, por fecha de venta'}
-    for offset in [0,3]:
-        for column,card in zip(st.columns(3),cards[offset:offset+3]):
+    for offset in [0,2]:
+        for column,card in zip(st.columns(2),cards[offset:offset+2]):
             label,value,key,icon,tone,help_text,caption = card
             with column:
                 tarjeta_kpi(label,value,key=key,icon=icon,tone=tone,delta=_delta(data,key),help=help_text,
                             caption=caption,inverse=key=="pending_payment",serie=tendencias.get(key),
                             etiquetas=serie.periodo.tolist(),contexto_serie=contexto.get(key),
                             formato_serie='moneda' if key in ('total','average','pending_payment') else 'porcentaje' if key=='conversion' else 'entero')
+    with st.expander('Ver detalle de indicadores'):
+        # Reubicar valores, sin recalcularlos ni perder sus comparaciones.
+        indicadores=[('Total vendido','total',True),('Cantidad de ventas','sales_count',False),
+                     ('Solicitudes recibidas en el período','requests_count',False),
+                     ('Venta promedio','average',True),('Solicitudes que se vendieron','conversion',False),
+                     ('Ventas con pago pendiente','pending_payment',True)]
+        def valor(key,datos,moneda):
+            n=datos[key]
+            if n is None:return '—'
+            if key=='conversion':return f'{n:.1f}%'.replace('.',',')
+            return money(n) if moneda else str(n)
+        tabla_registros(pd.DataFrame([{'Indicador':label,'Valor':valor(key,data,moneda),
+            'Período anterior':valor(key,data['previous'],moneda),'Variación':_delta(data,key) or '—'}
+            for label,key,moneda in indicadores]),'Detalle de indicadores')
     a,b = st.columns(2)
     with a:
         with tarjeta_grafico("Ventas por período","Total vendido, promedio y mejor período · CLP","ventas"):
@@ -229,7 +243,7 @@ def dashboard_page(repo):
     start, end, grouping, _, _ = activos
     with hero:
         encabezado_pagina("Una mirada a tu negocio", f"{grouping} · {start:%d/%m/%Y} – {end:%d/%m/%Y}",
-                          "DASHBOARD", "✦")
+                          "DASHBOARD", "✦", mostrar_metricas=False)
     _actualizar_dashboard(repo, activos)
 
 

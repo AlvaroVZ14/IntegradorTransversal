@@ -157,6 +157,14 @@ def by_label(elements,label):
     return next(e for e in elements if e.label==label)
 
 
+def fila_indicador(app,label):
+    from xml.etree import ElementTree
+    html=next(m.value for m in app.markdown if '<caption>Detalle de indicadores' in m.value)
+    rows=ElementTree.fromstring(html).findall('.//tbody/tr')
+    return next({td.attrib['data-label']:''.join(td.itertext()) for td in row}
+                for row in rows if ''.join(row[0].itertext())==label)
+
+
 def paginas_registradas(app):
     return [p['page_name'] for p in app._registered_pages.values()]
 
@@ -333,8 +341,8 @@ class AppTests(unittest.TestCase):
         self.assertEqual(repo.sale_rows[0]['monto_clp'],420000)
         ir_a(app,'Dashboard')
         self.assert_clean(app)
-        self.assertEqual(by_label(app.metric,'Ventas del período').value,'$420.000')
-        self.assertEqual(by_label(app.metric,'Ventas cerradas').value,'1')
+        self.assertEqual(by_label(app.metric,'Total vendido').value,'$420.000')
+        self.assertEqual(fila_indicador(app,'Cantidad de ventas')['Valor'],'1')
 
     def test_dashboard_empty_metrics_and_no_sales_message(self):
         app,repo=self.setup_app()
@@ -412,7 +420,7 @@ class AppTests(unittest.TestCase):
         self.assertTrue(any(e.label=='Ver más gráficos' for e in app.expander))
         content=' '.join(x.value for x in app.markdown)
         self.assertIn('El reparto de reserva y remuneración aún no está registrado',content)
-        self.assertEqual(len(app.metric),6)
+        self.assertEqual(len(app.metric),4)
 
     def test_tariff_write(self):
         app,repo=self.setup_app()
@@ -451,7 +459,7 @@ class AppTests(unittest.TestCase):
             for info in app._registered_pages.values():
                 if info['page_name']!='Inicio':self.assertEqual(info['icon'],PAGINAS[info['page_name']][2])
 
-    def test_case_kpis_count_real_states_and_badges(self):
+    def test_case_list_preserves_real_states_and_badges_without_summary_cards(self):
         from mente_futuro.domain import STATES
         app,repo=self.setup_app()
         app.run()
@@ -463,10 +471,8 @@ class AppTests(unittest.TestCase):
         app.session_state['caso_abierto']=None
         app.run()
         self.assert_clean(app)
-        self.assertEqual(by_label(app.metric,'Por revisar').value,'2')
-        self.assertEqual(by_label(app.metric,'En desarrollo').value,'2')
-        self.assertIn('cotizados',by_label(app.metric,'Por revisar').help)
-        self.assertIn('Aceptada',by_label(app.metric,'En desarrollo').help)
+        self.assertFalse(app.metric)
+        self.assertEqual(by_label(app.selectbox,'Filtrar estado').options[0],'Todos los estados')
         table=next(x.value for x in app.markdown if '<table' in x.value)
         for label in ['Solicitud','Cotizada','Aceptada','En seguimiento','Cerrada','Rechazada']:
             self.assertIn(label,table)
@@ -596,7 +602,7 @@ class AppTests(unittest.TestCase):
         self.assertEqual(repo.case_rows[0]['estado'],'Solicitud')
         ir_a(app,'Dashboard')
         self.assert_clean(app)
-        self.assertEqual(by_label(app.metric,'Nuevas solicitudes').value,'1')
+        self.assertEqual(fila_indicador(app,'Solicitudes recibidas en el período')['Valor'],'1')
 
     def test_autosave_does_not_reset_quote_draft(self):
         app,repo=self.setup_app();app.run();self.create_request(app)
