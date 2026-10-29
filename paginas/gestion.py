@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from mente_futuro.domain import MODALITIES, PAYMENTS, SERVICES, STATES, TOPICS, code, csv_bytes, money, quote_total, today, validate_request
-from mente_futuro.presentation import quote_html
+from servicios.documentos_cotizacion import generar_pdf,nombre_archivo
 from mente_futuro.ui import flash, show_error
 from utils.permisos import require_admin
 from utils.estados import etiqueta_estado, etiqueta_opcion_estado
@@ -50,11 +50,17 @@ def quote_history(quotes,repo=None,case=None):
             c.metric("Total CLP",money(q["total_clp"]))
             st.caption("Exento de IVA" if q["iva_pct"] == 0 else "Total incluye IVA de 19%")
             st.text(q["condiciones"])
-            st.download_button("Descargar cotización", data=quote_html(q), file_name=f"{code(q,'COT')}.html", mime="text/html", key=f"download_{q['id']}")
-            st.caption("Abre el archivo descargado para imprimirlo o guardarlo como PDF desde el navegador.")
+            try:
+                if repo is not None:
+                    from paginas.acciones_cotizacion import archivos
+                    _,pdf=archivos(repo,q)
+                else:pdf=generar_pdf(q)
+                st.download_button("Descargar cotización", data=pdf, file_name=nombre_archivo(q), mime="application/pdf", key=f"download_{q['id']}")
+            except Exception:
+                st.warning('No pudimos preparar el PDF. La cotización sigue guardada; vuelve a intentar la descarga.')
             if repo is not None:
                 from paginas.acciones_cotizacion import descargas,acciones,guardar_plantilla
-                # Documentos antiguos conservan también la descarga HTML original.
+                # Conserva las descargas adicionales y las acciones existentes.
                 try:
                     repo.quote_settings()
                     descargas(repo,q)

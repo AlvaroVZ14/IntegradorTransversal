@@ -10,7 +10,7 @@ from streamlit.components.v2 import component
 from mente_futuro.domain import code,money,today,PAYMENTS
 from mente_futuro.ui import flash,show_error
 from servicios.cotizacion_asistida import configuracion,mensaje_cliente,SECCIONES
-from servicios.documentos_cotizacion import generar_word,generar_pdf
+from servicios.documentos_cotizacion import generar_word,generar_pdf,documento_descarga,nombre_archivo
 from servicios.envio_cotizacion import enviar_correo,enlace_whatsapp
 from utils.permisos import require_admin
 from utils.estilos import CSS_COPIAR
@@ -34,6 +34,8 @@ def _archivos(usuario,cotizacion_json):
 
 def archivos(repo,q):
     require_admin(repo)
+    if not q.get('documento',{}).get('emisor') or 'marca' not in q.get('documento',{}):
+        q=documento_descarga(q,repo.quote_settings().get('datos') or {})
     return _archivos(repo.user.id,json.dumps(q,sort_keys=True,default=str))
 
 
@@ -42,8 +44,8 @@ def descargas(repo,q,prefijo='hist'):
     try:
         word,pdf=archivos(repo,q)
         a,b=st.columns(2)
-        a.download_button('Descargar Word',word,file_name=code(q,'COT')+'.docx',mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',key=prefijo+'_word_'+q['id'])
-        b.download_button('Descargar PDF',pdf,file_name=code(q,'COT')+'.pdf',mime='application/pdf',key=prefijo+'_pdf_'+q['id'])
+        a.download_button('Descargar Word',word,file_name=nombre_archivo(q,'docx'),mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',key=prefijo+'_word_'+q['id'])
+        b.download_button('Descargar PDF',pdf,file_name=nombre_archivo(q),mime='application/pdf',key=prefijo+'_pdf_'+q['id'])
     except Exception:
         st.warning('No pudimos preparar los documentos. La versión sigue guardada; puedes reintentar la descarga.')
     st.button('Enviar al cliente',key=prefijo+'_send_'+q['id'],on_click=_abrir_dialogo,args=('envio',q))

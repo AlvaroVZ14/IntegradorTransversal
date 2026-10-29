@@ -91,7 +91,8 @@ def prellenar(caso,tarifas,plantillas,config):
         detalle=(tarifa or {}).get('detalle') or caso.get('detalle') or textos['descripcion'],
         condiciones=config['condiciones'],valida_hasta=(today()+timedelta(days=config['vigencia_dias'])).isoformat(),
         modalidad=caso['modalidad'],participantes=int(caso['participantes']),horas=float(caso['horas']),
-        textos=textos,mostrar={k:True for k in SECCIONES},emisor=deepcopy(config['emisor']))
+        textos=textos,mostrar={k:True for k in SECCIONES},emisor=deepcopy(config['emisor']),
+        marca={k:deepcopy(config[k]) for k in ('nombre','sitio_web','correo_contacto','logo_base64') if config.get(k)})
 
 
 def faltantes(caso,borrador):
