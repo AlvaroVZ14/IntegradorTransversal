@@ -23,7 +23,7 @@ def url_base(valor):
         p.port  # Valida también un puerto mal escrito.
         if any(c in p.netloc for c in ('\\','%','<','>','"',"'")):return ''
         camino=p.path.split('/~/')[0].rstrip('/')
-        from utils.navegacion import PAGINAS
+        from utils.navegacion_portal import PAGINAS
         if camino.rsplit('/',1)[-1] in {v[1] for v in PAGINAS.values()}:camino=camino.rsplit('/',1)[0]
         return urlunsplit((p.scheme,p.netloc,camino+'/' if camino else '/', '', ''))
     except (ValueError,TypeError):return ''

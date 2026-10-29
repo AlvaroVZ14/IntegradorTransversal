@@ -7,7 +7,7 @@ from servicios.sesion import restaurar, perfil_verificado
 from utils.permisos import guard_route
 from mente_futuro.ui import login, logout, show_error
 from utils.componentes import pie_portal
-from utils.navegacion import registrar_navegacion, barra_cuenta, barra_publica, resolver_ruta_desconocida,rutas_para_perfil
+from utils.navegacion_portal import registrar_navegacion, barra_cuenta, barra_publica, resolver_ruta_desconocida,rutas_para_perfil
 from utils.borrador_local import limpiar_borrador_al_salir
 from utils.sesion_cookie import cookie_inicial, ordenar_cookie, recordar_sesion, puente_cookie, pantalla_restaurando, mantener_sesion_activa
 

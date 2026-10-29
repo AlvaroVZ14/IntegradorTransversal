@@ -42,7 +42,7 @@ registrar_navegacion({'rol':'admin'})
         original=st.navigation
         for titulos,agrupada in [(['Hoy','Nueva solicitud','Casos y cotizaciones','Compartir','Dashboard'],False),
                                 (['Hoy','Nueva solicitud','Casos y cotizaciones','Compartir','Dashboard','Estado'],True)]:
-            with patch('utils.navegacion.allowed_pages',return_value=titulos),patch('streamlit.navigation',wraps=original) as nav:
+            with patch('utils.navegacion_portal.allowed_pages',return_value=titulos),patch('streamlit.navigation',wraps=original) as nav:
                 app=AppTest.from_string(codigo).run()
                 self.assertFalse(app.exception)
                 self.assertEqual(nav.call_args.kwargs['position'],'top')
