@@ -165,7 +165,8 @@ TODAS_PAGINAS=['Inicio',*PAGINAS]
 
 
 def menu_visible(app):
-    return [x.label for x in app.sidebar.get('page_link')]
+    # El menú móvil estándar tiene los mismos destinos que el menú superior.
+    return list(dict.fromkeys(x.label for x in app.get('page_link') if x.label in PAGINAS))
 
 
 def paso(app,n):
@@ -442,8 +443,9 @@ class AppTests(unittest.TestCase):
                 self.assertIn(role,content)
                 self.assertIn('Mente y Futuro · Sistema de gestión',content)
             self.assertEqual(paginas_registradas(app),TODAS_PAGINAS)
-            self.assertEqual(menu_visible(app),['Hoy','Nueva solicitud','Casos y cotizaciones','Compartir','Dashboard'] if owner else [])
-            self.assertEqual((app.sidebar.button if owner else app.button)[-1 if owner else 0].label,'Cerrar sesión')
+            self.assertEqual(menu_visible(app),['Hoy','Nueva solicitud','Casos y cotizaciones','Compartir','Dashboard'] if owner else ['Nueva solicitud'])
+            self.assertTrue(any(b.label=='Cerrar sesión' for b in app.button))
+            self.assertFalse(app.sidebar.children)
             self.assertFalse(app.radio)
             self.assertFalse(any(b.label=='Actualizar información' for b in app.button))
             for info in app._registered_pages.values():

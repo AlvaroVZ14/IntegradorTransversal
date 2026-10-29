@@ -421,6 +421,51 @@ ESTILOS_BASE += """
 }
 @media(prefers-reduced-motion:reduce){.mfy-progress-track i{transition:none!important;}}
 """
+# Barra superior: selectores internos de Streamlit 1.65 (stHeader,
+# stHeaderLogo, stTopNavLink/Section/Popover). Los st-key son propios.
+ESTILOS_BASE += """
+.stApp:has(:is(.mfy-top-nav-marker,.mfy-public-nav-marker)) [data-testid="stHeader"]{display:flex!important;position:fixed;height:64px;min-height:64px;background:var(--mfy-nav-background);border-bottom:1px solid var(--mfy-nav-border);color:var(--mfy-nav-text);z-index:990;}
+.stApp:has(:is(.mfy-top-nav-marker,.mfy-public-nav-marker)) .block-container{padding-top:88px;}
+.stApp:has(:is(.mfy-top-nav-marker,.mfy-public-nav-marker)) [data-testid="stHeaderLogo"]{display:block;max-width:154px!important;height:48px!important;max-height:48px!important;object-fit:contain;background:var(--mfy-white);padding:4px 8px;border-radius:10px;margin-left:16px;box-sizing:border-box;}
+.stApp:has(.mfy-top-nav-marker) [data-testid="stHeader"]{padding-right:150px;}
+.stApp:has(.mfy-top-nav-marker) [data-testid="stToolbar"]{width:100%;}
+.stApp:has(.mfy-top-nav-marker) [data-testid="stToolbar"]>div{width:100%;justify-content:space-between;}
+.stApp:has(.mfy-top-nav-marker) [data-testid="stToolbar"] .rc-overflow{margin-left:auto;flex:1!important;justify-content:flex-end!important;}
+.stApp:has(:is(.mfy-top-nav-marker,.mfy-public-nav-marker)) [data-testid="stLogoLink"]{max-width:none!important;flex-shrink:0;}
+.stApp:has(:is(.mfy-top-nav-marker,.mfy-public-nav-marker)) [data-testid="stHeaderLogo"]{width:154px!important;object-position:center;}
+[data-testid="stTopNavLink"],[data-testid="stTopNavSection"]{min-height:44px!important;box-sizing:border-box;border-radius:12px;color:var(--mfy-nav-text)!important;font-family:Inter,sans-serif;}
+[data-testid="stTopNavLink"] p,[data-testid="stTopNavSection"] p{color:inherit!important;font-size:.85rem!important;}
+[data-testid="stTopNavLink"] span,[data-testid="stTopNavLink"] p,[data-testid="stTopNavSection"] span,[data-testid="stTopNavSection"] p{color:var(--mfy-nav-text)!important;}
+[data-testid="stTopNavLink"] [data-testid="stIconMaterial"]{color:var(--mfy-nav-icon)!important;}
+[data-testid="stTopNavLink"][aria-current="page"]{background:var(--mfy-nav-active)!important;border-bottom:3px solid var(--mfy-nav-indicator);font-weight:700;}
+[data-testid="stTopNavLink"][aria-current="page"] [data-testid="stIconMaterial"]{color:var(--mfy-nav-active-icon)!important;}
+[data-testid="stTopNavLink"]:hover,[data-testid="stTopNavSection"]:hover{background:var(--mfy-nav-hover);}
+[data-testid="stTopNavLink"]:focus-visible,[data-testid="stTopNavSection"]:focus-visible{outline:3px solid var(--mfy-nav-focus);outline-offset:2px;}
+[data-testid="stTopNavDropdownLink"]{min-height:44px;}
+.st-key-mfy_top_account,.st-key-mfy_top_mobile,.st-key-mfy_top_single{position:fixed!important;top:10px;right:16px;width:126px!important;z-index:1000;}
+.st-key-mfy_top_mobile{display:none;}
+.st-key-mfy_top_single{right:164px;width:175px!important;}
+.st-key-mfy_top_single [data-testid="stPageLink-NavLink"]{min-height:44px;color:var(--mfy-nav-text)!important;background:var(--mfy-nav-active);border-bottom:3px solid var(--mfy-nav-indicator);border-radius:12px;}
+.st-key-mfy_top_single [data-testid="stPageLink-NavLink"] :is(span,p){color:var(--mfy-nav-text)!important;}
+:is(.st-key-mfy_top_account,.st-key-mfy_top_mobile) [data-testid="stPopoverButton"]{min-height:44px;background:transparent;color:var(--mfy-nav-text);border:1px solid var(--mfy-nav-border);box-shadow:none;white-space:nowrap;}
+:is(.st-key-mfy_top_account,.st-key-mfy_top_mobile) [data-testid="stPopoverButton"] p{color:inherit!important;}
+:is(.st-key-mfy_top_account,.st-key-mfy_top_mobile) button:focus-visible{outline:3px solid var(--mfy-nav-focus)!important;outline-offset:2px;}
+.st-key-mfy_mobile_links [data-testid="stPageLink-NavLink"]{display:flex;align-items:center;min-height:48px;padding:10px 12px;border-radius:12px;color:var(--mfy-text);}
+.st-key-mfy_mobile_links [class*="st-key-mfy_mobile_active_"] [data-testid="stPageLink-NavLink"]{background:var(--mfy-lavender-soft);border-left:4px solid var(--mfy-purple);font-weight:700;}
+.st-key-mfy_mobile_links button{min-height:44px;}
+.stApp:has(.mfy-top-nav-marker) :is([data-testid="stSidebar"],[data-testid="stExpandSidebarButton"]){display:none!important;}
+/* La barra pública solo contiene la marca; los enlaces configurados se
+   conservan en la cabecera del formulario. */
+.stApp:has(.mfy-public-nav-marker) [data-testid="stHeader"] [data-testid="stToolbarActions"]{display:none;}
+@media(max-width:767px){
+ .stApp:has(:is(.mfy-top-nav-marker,.mfy-public-nav-marker)) [data-testid="stHeaderLogo"]{max-width:124px!important;height:44px!important;max-height:44px!important;margin-left:12px;}
+ .st-key-mfy_top_account,.st-key-mfy_top_single{display:none!important;}
+ .st-key-mfy_top_mobile{display:block;right:12px;width:108px!important;}
+ .stApp:has(.mfy-top-nav-marker) [data-testid="stHeader"] :is([data-testid="stTopNavLinkContainer"],[data-testid="stTopNavSection"]){display:none!important;}
+ .stApp:has(:is(.mfy-top-nav-marker,.mfy-public-nav-marker)) .block-container{padding-top:80px!important;}
+ [data-testid="stPopoverBody"]:has(.st-key-mfy_mobile_links){max-width:calc(100vw - 24px)!important;max-height:calc(100dvh - 80px);overflow-y:auto;}
+}
+"""
 # Posiciones estáticas; las únicas propiedades animadas del confeti son transform y opacity.
 ESTILOS_BASE += "".join(
     f'.mfy-confetti-piece:nth-child({i+1}){{left:{5+i*5}%;animation-delay:{(i%4)*25}ms;}}'

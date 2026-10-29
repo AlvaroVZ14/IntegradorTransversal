@@ -6,8 +6,8 @@ from servicios.repositorio import Repository, public_client
 from servicios.sesion import restaurar, perfil_verificado
 from utils.permisos import guard_route
 from mente_futuro.ui import login, logout, show_error
-from utils.componentes import identidad_usuario, pie_portal
-from utils.navegacion import crear_paginas, cerrar_menu_movil_al_navegar, menu_lateral, resolver_ruta_desconocida,rutas_para_perfil
+from utils.componentes import pie_portal
+from utils.navegacion import registrar_navegacion, barra_cuenta, barra_publica, resolver_ruta_desconocida,rutas_para_perfil
 from utils.borrador_local import limpiar_borrador_al_salir
 from utils.sesion_cookie import cookie_inicial, ordenar_cookie, recordar_sesion, puente_cookie, pantalla_restaurando, mantener_sesion_activa
 
@@ -18,10 +18,8 @@ st.markdown(CSS,unsafe_allow_html=True)
 def main():
     st.session_state.pop('_repo_actual',None)
     st.session_state['_vista_externa']=False
-    # Antes de Auth, red, cookies o cualquier retorno temprano: siempre igual.
+    # Normalizar solo la intención de URL antes de Auth, sin cambiar permisos.
     desconocida=resolver_ruta_desconocida()
-    registro,paginas=crear_paginas()
-    actual=st.navigation(registro,position='hidden')
     # st.switch_page limpia los parámetros de URL: retener solo la atribución,
     # sin usarla para decidir sesión, rol o destino.
     if 'canal' in st.query_params:
@@ -29,12 +27,16 @@ def main():
         st.session_state['_canal_entrada']=normalizar_canal(st.query_params['canal'])
     if desconocida:st.session_state['ruta_inexistente']=True
     from servicios.acceso import confirmar_enlace
-    if confirmar_enlace():return
+    if confirmar_enlace():
+        registrar_navegacion()
+        return
     cookie=cookie_inicial()
     if st.query_params.get('vista')=='solicitud':
         # Entrada anónima independiente: nunca restaura ni utiliza Auth para
         # consultar/guardar. Una cuenta abierta no convierte este formulario en interno.
         st.session_state['_vista_externa']=True
+        registrar_navegacion()
+        barra_publica()
         from paginas.formulario import formulario
         from utils.componentes import mostrar_celebracion
         formulario(modo='publico',volver_a_app=bool(cookie or st.session_state.get('auth_client')))
@@ -58,6 +60,7 @@ def main():
                 except Exception:
                     # No borrar un token válido por una caída de red.
                     st.session_state['_restauracion_intentada']=False
+                    registrar_navegacion()
                     pantalla_restaurando()
                     st.warning('No pudimos conectar para recuperar tu sesión. Reintenta cuando vuelva la conexión.')
                     return
@@ -76,14 +79,19 @@ def main():
         except (AuthApiError,PermissionError):
             logout()
         except Exception as error:
+            registrar_navegacion()
             show_error(error,'No pudimos verificar tu sesión. Revisa la conexión e intenta nuevamente.')
             if st.button('Reintentar'):st.rerun()
             return
     if not puente_cookie():
+        registrar_navegacion()
         pantalla_restaurando()
         return
     if st.session_state.pop('_cookie_aviso',False):
         st.warning('El navegador no permitió recordar tu sesión. Puedes usar la app; al recargar tendrás que ingresar nuevamente.')
+    # Resolver la URL después de verificar el rol permite usar el menú nativo
+    # sin exponer enlaces durante la restauración. Todas las URLs siguen registradas.
+    actual,paginas=registrar_navegacion(repo.profile if repo and st.query_params.get('vista')!='acceso' else None)
     if repo is None or st.query_params.get('vista')=='acceso':
         if actual.title!='Inicio':st.session_state['destino_tras_login']=actual.title
         login()
@@ -112,21 +120,13 @@ def main():
     if segura!=actual.title:st.switch_page(autorizadas[segura])
     st.session_state.navigation=segura
     mantener_sesion_activa()
+    barra_cuenta(repo,segura)
     if not repo.is_owner:
         st.session_state['_vista_externa']=True
         actual.run()
         from utils.componentes import mostrar_celebracion
         mostrar_celebracion()
         return
-    st.logo(str(LOGO),size='large',icon_image=FAVICON.read_text(encoding='utf-8'))
-    with st.sidebar,st.container(key='mfy_sidebar'):
-        menu_lateral(repo.profile,autorizadas,segura)
-        with st.container(key='mfy_sidebar_bottom'):
-            identidad_usuario(repo.profile.get('nombre'),repo.is_owner)
-            from utils.en_vivo import indicador
-            indicador({'Hoy':'hoy','Dashboard':'dashboard','Casos y cotizaciones':'casos'}.get(segura,'solicitud'),lateral=True)
-            if st.button('Cerrar sesión',key='logout',width='stretch',icon=':material/logout:'):logout()
-    cerrar_menu_movil_al_navegar()
     limpiar_borrador_al_salir(repo.user.id)
     if 'notice' in st.session_state:st.success(st.session_state.pop('notice'))
     actual.run()

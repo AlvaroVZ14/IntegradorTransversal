@@ -106,7 +106,7 @@ class Formulario:
             st.markdown(f'<p class="mfy-field-error" role="alert">{escape(self.errores()[k])}</p>',unsafe_allow_html=True)
 
     def cabecera(self):
-        if self.modo=='cliente':
+        if self.modo=='cliente' and '_repo_actual' not in st.session_state:
             with st.container(key='mfy_client_bar'):
                 logo,a,b=st.columns([1,2,1.5])
                 with logo:st.image(str(LOGO),width=90)
@@ -119,7 +119,9 @@ class Formulario:
                 with st.container(key='mfy_public_top'):
                     a,b=st.columns([1,1.3])
                     with a:
-                        with st.container(key='mfy_public_logo'):st.image(str(LOGO),width=190)
+                        # La marca vive en la barra superior común; conservar
+                        # el hueco de enlaces evita modificar el contenido del formulario.
+                        st.empty()
                     with b:self.enlaces=st.empty()
             else:self.enlaces=None
             st.markdown('<div class="mfy-form-heading">'+html_contenido_encabezado('Cuéntanos qué necesita tu equipo',

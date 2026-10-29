@@ -63,7 +63,7 @@ class RecargaTests(unittest.TestCase):
                 self.assertEqual(list(p['page_name'] for p in app._registered_pages.values()),TODAS_PAGINAS)
                 if rol=='cliente':
                     self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
-                    self.assertEqual(menu_visible(app),[])
+                    self.assertEqual(menu_visible(app),['Nueva solicitud'])
                     self.assertFalse(app.dataframe);self.assertFalse(app.metric)
                 elif path in ['no-existe','ruta/anidada']:
                     self.assertEqual(app.session_state['navigation'],'Hoy')
