@@ -466,6 +466,77 @@ ESTILOS_BASE += """
  [data-testid="stPopoverBody"]:has(.st-key-mfy_mobile_links){max-width:calc(100vw - 24px)!important;max-height:calc(100dvh - 80px);overflow-y:auto;}
 }
 """
+# Ajustes responsive compartidos. stMain/Column/ElementContainer, stImage,
+# stDataFrame y los selectores BaseWeb son internos de Streamlit 1.65.
+# No ocultar overflow globalmente: tablas, pestañas y código tienen su propio scroll.
+ESTILOS_BASE += """
+[data-testid="stMain"]{scroll-padding-top:80px;scroll-padding-bottom:110px;}
+[data-testid="stMain"] :is([data-testid="stVerticalBlock"],[data-testid="stColumn"],[data-testid="stElementContainer"]){min-width:0;}
+[data-testid="stMain"] :is([data-testid="stElementContainer"],[data-testid="stDataFrame"],.mfy-table-wrap,.stTabs){max-width:100%;box-sizing:border-box;}
+[data-testid="stMain"] :is(input,textarea,[role="combobox"],button,.mfy-public-progress){scroll-margin-top:80px;scroll-margin-bottom:110px;}
+[data-testid="stMain"] :is(input:not([type="checkbox"]):not([type="radio"]),textarea,[role="combobox"]){font-size:16px!important;}
+[data-baseweb="select"]>div{font-size:16px;}
+[data-testid="stMain"] :is([data-testid="stImage"],[data-testid="stImage"] img){max-width:100%;}
+.st-key-mfy_form_compartir_descargas [data-testid="stImage"]{margin-inline:auto;}
+.st-key-mfy_form_compartir_descargas img{height:auto;object-fit:contain;}
+.st-key-mfy_form_compartir_descargas button{min-width:44px;min-height:44px;}
+[class*="st-key-mfy_form_compartir_"] :is(pre,code){max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;}
+[data-testid="stCode"]{max-width:100%;overflow-x:auto;}
+.mfy-chips span,.mfy-state-key>span{max-width:100%;overflow-wrap:anywhere;}
+.mfy-table td>span{min-width:0;max-width:100%;overflow-wrap:anywhere;}
+@media(max-width:1023px){
+ [data-testid="stMain"] [data-testid="stWidgetLabel"] p{white-space:normal;overflow-wrap:anywhere;line-height:1.5;}
+ /* Evitar el reloj comprimido junto a títulos y métricas en la tableta. */
+ .st-key-mfy_page_header [data-testid="stHorizontalBlock"]{flex-direction:column!important;}
+ .st-key-mfy_page_header [data-testid="stHorizontalBlock"]>[data-testid="stColumn"]{flex:1 1 100%!important;width:100%!important;min-width:0;}
+ .st-key-mfy_header_actions{width:100%;}
+ [data-testid="stDialog"] [role="dialog"]{max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);overflow-y:auto;}
+}
+@media(min-width:768px) and (max-width:1023px){
+ .block-container{padding-inline:24px;}
+ .mfy-table{min-width:680px;}
+ /* Formularios densos: dos columnas solo cuando cada campo tiene espacio. */
+ [data-testid="stMain"] :is([data-testid="stForm"],.st-key-mfy_form_quote) [data-testid="stHorizontalBlock"]{flex-wrap:wrap;}
+ [data-testid="stMain"] :is([data-testid="stForm"],.st-key-mfy_form_quote) [data-testid="stHorizontalBlock"]>[data-testid="stColumn"]{flex:1 1 260px;min-width:0;}
+ [data-testid="stHorizontalBlock"]:has(>[data-testid="stColumn"] [class*="st-key-mfy_chart_"]){flex-wrap:wrap;}
+ [data-testid="stHorizontalBlock"]:has(>[data-testid="stColumn"] [class*="st-key-mfy_chart_"])>[data-testid="stColumn"]{flex:1 1 340px;min-width:0;}
+}
+@media(max-width:767px){
+ .block-container{padding-inline:16px!important;padding-bottom:calc(100px + env(safe-area-inset-bottom));}
+ [data-testid="stMain"] :is(.stButton,.stDownloadButton,.stLinkButton,.stFormSubmitButton){width:100%;max-width:100%;}
+ [data-testid="stMain"] :is(.stButton,.stDownloadButton,.stLinkButton,.stFormSubmitButton)>:is(button,a){width:100%;min-height:44px;white-space:normal;box-sizing:border-box;}
+ [data-testid="stMain"] :is(button,a) p{white-space:normal;overflow-wrap:anywhere;}
+ /* Los botones de ayuda pertenecen a la etiqueta, no a las tarjetas de opción. */
+ [data-testid="stMain"] [data-testid="stWidgetLabel"] button{width:44px!important;min-width:44px;max-width:44px;min-height:44px!important;height:44px!important;padding:4px!important;}
+ [data-testid="stMain"] :is([data-testid="stTextInput"],[data-testid="stNumberInput"],[data-testid="stSelectbox"],[data-testid="stTextArea"],[data-testid="stDateInput"]){width:100%;min-width:0;}
+ .mfy-hero-copy{padding-right:0;min-width:0;}
+ .mfy-hero-copy .mfy-eyebrow{display:block;min-height:40px;padding-right:46px;box-sizing:border-box;}
+ .mfy-hero-copy h1{font-size:clamp(28px,7.5vw,34px)!important;overflow-wrap:anywhere;}
+ .mfy-hero-orbit{width:44px;top:0;}
+ .st-key-mfy_login_brand .mfy-hero-copy{padding-right:0;}
+ .st-key-mfy_login_brand .mfy-hero-orbit{width:44px;}
+ .mfy-all-done{padding:18px;gap:14px;align-items:flex-start;}
+ .mfy-all-done .mfy-bulb{width:48px;}
+ .stTabs [data-baseweb="tab-list"]{max-width:100%;overscroll-behavior-x:contain;}
+ .stTabs [data-baseweb="tab"]{flex-shrink:0;}
+ .st-key-mfy_steps button{height:auto!important;min-height:68px!important;padding:10px 8px;}
+ .st-key-mfy_steps button p{white-space:normal!important;line-height:1.35;}
+ .st-key-mfy_login [data-testid="stImage"]{max-width:200px;margin-inline:auto;}
+ .mfy-table,.mfy-table tbody,.mfy-table tr{min-width:0;max-width:100%;}
+ .mfy-table td{grid-template-columns:minmax(65px,28%) minmax(0,1fr);}
+ [data-testid="stDataFrame"]{overflow-x:auto;overscroll-behavior-x:contain;}
+ /* Las acciones flotantes quedan fuera de las tarjetas animadas. Se deja
+    espacio al pie y se reutiliza el desplazamiento del teclado del formulario. */
+ .st-key-mfy_formulario_interno{padding-bottom:86px;}
+ .st-key-mfy_formulario_interno .st-key-ff_guardar{position:fixed;left:16px;right:16px;bottom:calc(12px + env(safe-area-inset-bottom) + var(--mfy-keyboard-bottom));width:auto!important;z-index:980;}
+ .st-key-mfy_login{padding-bottom:90px;transform:none!important;animation:none;}
+ .st-key-mfy_login [data-testid="stFormSubmitButton"]{position:fixed;left:16px;right:16px;bottom:calc(12px + env(safe-area-inset-bottom));width:auto!important;z-index:980;}
+ .st-key-mfy_generate{left:16px;right:16px;width:auto;bottom:calc(12px + env(safe-area-inset-bottom));}
+ .st-key-mfy_quote_downloads,.st-key-mfy_quote_ready{left:16px;right:16px;width:auto;max-width:calc(100vw - 32px);max-height:calc(100dvh - 165px);overflow-y:auto;box-sizing:border-box;}
+ [data-testid="stDialog"] [data-testid="stHorizontalBlock"]{flex-direction:column!important;}
+ [data-testid="stDialog"] [data-testid="stColumn"]{width:100%!important;flex:1 1 100%!important;min-width:0!important;}
+}
+"""
 # Posiciones estáticas; las únicas propiedades animadas del confeti son transform y opacity.
 ESTILOS_BASE += "".join(
     f'.mfy-confetti-piece:nth-child({i+1}){{left:{5+i*5}%;animation-delay:{(i%4)*25}ms;}}'
@@ -483,7 +554,7 @@ ESTILOS_BASE += "".join(
 ) + CSS_VIDRIO + "</style>"
 
 # Los componentes v2 tienen raíz propia; estos estilos siguen centralizados aquí.
-CSS_COPIAR = 'button{min-height:44px;border-radius:12px;padding:10px 18px;border:1px solid #3D6FE0;background:white;color:#0B2545;cursor:pointer}button:focus-visible{outline:3px solid #FFCC00;outline-offset:3px}'
+CSS_COPIAR = 'button{box-sizing:border-box;width:100%;max-width:100%;min-height:44px;border-radius:12px;padding:10px 18px;border:1px solid #3D6FE0;background:white;color:#0B2545;cursor:pointer;white-space:normal;overflow-wrap:anywhere}button:focus-visible{outline:3px solid #FFCC00;outline-offset:3px}'
 CSS_EN_VIVO = """
 .live{display:inline-flex;align-items:center;gap:8px;border-radius:22px;padding:9px 12px;
 background:#fff;color:#0B2545;font:500 12px Inter,sans-serif;min-height:26px;line-height:1.5}
