@@ -234,7 +234,7 @@ def cases_content(repo):
         tab_key='caso_pestana_'+case['id']
         if venta:st.session_state[tab_key]='Venta'
         elif cotizar:st.session_state[tab_key]='Cotizaciones'
-        detail_tab, quote_tab, sale_tab = st.tabs(["Datos y seguimiento","Cotizaciones","Venta"],key=tab_key,on_change='rerun')
+        detail_tab, quote_tab, sale_tab, docs_tab = st.tabs(["Datos y seguimiento","Cotizaciones","Venta","Documentos"],key=tab_key,on_change='rerun')
         with detail_tab:
             edit_case(repo,case)
         with quote_tab:
@@ -245,6 +245,10 @@ def cases_content(repo):
             issue_quote(repo,case)
         with sale_tab:
             sale_form(repo,case,quotes)
+        with docs_tab:
+            if docs_tab.open:
+                from paginas.documentos_caso import documentos_caso
+                documentos_caso(repo,case,quotes)
         from paginas.acciones_cotizacion import historial_eventos,aviso_deshacer
         historial_eventos(repo,case)
         aviso_deshacer(repo)

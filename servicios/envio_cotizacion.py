@@ -9,6 +9,19 @@ from mente_futuro.domain import code
 from servicios.cotizacion_asistida import mensaje_cliente
 
 
+def entregar_mensaje(mensaje,settings):
+    """Transporte TLS común; no reintenta ni decide destinatarios o adjuntos."""
+    if not all(settings.get(k) for k in ('host','usuario','password','remitente')):raise ValueError('Falta habilitar el correo de avisos.')
+    contexto=ssl.create_default_context()
+    puerto=int(settings.get('puerto',465 if settings.get('ssl',False) else 587))
+    conexion=smtplib.SMTP_SSL(settings['host'],puerto,context=contexto,timeout=20) if settings.get('ssl',False) else smtplib.SMTP(settings['host'],puerto,timeout=20)
+    with conexion as smtp:
+        if not settings.get('ssl',False):smtp.ehlo();smtp.starttls(context=contexto);smtp.ehlo()
+        smtp.login(settings['usuario'],settings['password'])
+        rechazados=smtp.send_message(mensaje)
+        if rechazados:raise smtplib.SMTPRecipientsRefused(rechazados)
+
+
 def enlace_whatsapp(telefono,texto):
     from urllib.parse import quote
     from servicios.solicitud_rapida import normalizar_telefono
@@ -36,14 +49,7 @@ def enviar_correo(repo,cotizacion,operation_id,destinatario,asunto,cuerpo,adjunt
         if reserva['envio']['estado']=='enviado':return 'enviado'
         raise ValueError('Este intento ya comenzó. Revisa el correo antes de preparar otro envío; no se reenvió automáticamente.')
     try:
-        contexto=ssl.create_default_context()
-        puerto=int(settings.get('puerto',465 if settings.get('ssl',False) else 587))
-        conexion=smtplib.SMTP_SSL(settings['host'],puerto,context=contexto,timeout=20) if settings.get('ssl',False) else smtplib.SMTP(settings['host'],puerto,timeout=20)
-        with conexion as smtp:
-            if not settings.get('ssl',False):smtp.ehlo();smtp.starttls(context=contexto);smtp.ehlo()
-            smtp.login(settings['usuario'],settings['password'])
-            rechazados=smtp.send_message(mensaje)
-            if rechazados:raise smtplib.SMTPRecipientsRefused(rechazados)
+        entregar_mensaje(mensaje,settings)
     except Exception:
         try:repo.confirm_quote_send(operation_id,'incierto')
         except Exception:pass

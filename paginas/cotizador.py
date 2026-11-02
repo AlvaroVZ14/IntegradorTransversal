@@ -256,6 +256,13 @@ def editor_cotizacion(repo,caso):
             q=repo.issue_quote(caso,datos_emision(d),draft['operacion'])
             # Algunos repositorios históricos no devolvían fila; recupera por operación.
             if not q:q=next(q for q in repo.quotes(caso['id']) if q.get('operacion_id')==draft['operacion'])
+            if hasattr(repo.client,'storage'):
+                try:
+                    from servicios.documentos_caso import DocumentosCaso
+                    DocumentosCaso(repo).sincronizar_cotizacion(caso,q)
+                except Exception:
+                    # La cotización ya fue emitida: no repetir emisión ni bloquear descarga.
+                    st.session_state['doc_aviso']='La cotización se guardó. Su copia en Documentos se completará al abrir esa pestaña.'
             draft['operacion']=str(uuid4());st.session_state.cotizacion_lista=q['id']
             st.session_state.abrir_cotizacion=caso['id']
             flash('Se recuperó la versión ya emitida. Tus cambios posteriores siguen en el borrador; genera otra versión para incluirlos.' if q.get('documento')!=datos_emision(d)['documento'] else 'Cotización generada. Descarga Word o PDF y revisa antes de enviar.')
