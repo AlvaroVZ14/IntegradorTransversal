@@ -9,7 +9,8 @@ from streamlit.components.v2 import component
 
 from mente_futuro.domain import code,money,today,PAYMENTS
 from mente_futuro.ui import flash,show_error
-from servicios.cotizacion_asistida import configuracion,mensaje_cliente,SECCIONES
+from servicios.cotizacion_asistida import mensaje_cliente,SECCIONES
+from servicios.cotizacion_defaults import RESERVA_PCT_DEFAULT,REMUNERACION_PCT_DEFAULT
 from servicios.documentos_cotizacion import generar_word,generar_pdf,documento_descarga,nombre_archivo
 from servicios.envio_cotizacion import enviar_correo,enlace_whatsapp
 from utils.permisos import require_admin
@@ -34,8 +35,7 @@ def _archivos(usuario,cotizacion_json):
 
 def archivos(repo,q):
     require_admin(repo)
-    if not q.get('documento',{}).get('emisor') or 'marca' not in q.get('documento',{}):
-        q=documento_descarga(q,repo.quote_settings().get('datos') or {})
+    q=documento_descarga(q)
     return _archivos(repo.user.id,json.dumps(q,sort_keys=True,default=str))
 
 
@@ -131,13 +131,12 @@ def _decidir(repo,caso,q,datos,op):
 @st.dialog('Aceptar cotización y registrar venta',width='large',on_dismiss=_cerrar_dialogo)
 def dialogo_aceptar(repo,caso,q):
     require_admin(repo)
-    config=configuracion(repo.quote_settings()['datos'])
     llave='aceptar_'+q['id'];op=st.session_state.setdefault(llave+'_op',str(uuid4()))
     monto=st.number_input('Monto de la venta (CLP)',min_value=0,max_value=100000000000,value=int(q['total_clp']),step=1000,key=llave+'_monto')
     fecha=st.date_input('Fecha de la venta',value=today(),format='DD/MM/YYYY',key=llave+'_fecha')
     a,b=st.columns(2)
-    reserva=a.number_input('Reserva (%)',0.0,100.0,float(config['reserva_pct']),step=.5,key=llave+'_reserva')
-    remuneracion=b.number_input('Remuneración (%)',0.0,100.0,float(config['remuneracion_pct']),step=.5,key=llave+'_remuneracion')
+    reserva=a.number_input('Reserva (%)',0.0,100.0,RESERVA_PCT_DEFAULT,step=.5,key=llave+'_reserva')
+    remuneracion=b.number_input('Remuneración (%)',0.0,100.0,REMUNERACION_PCT_DEFAULT,step=.5,key=llave+'_remuneracion')
     pago=st.selectbox('Estado del pago',PAYMENTS,key=llave+'_pago')
     documento=st.text_input('N° de documento (opcional)',max_chars=100,key=llave+'_documento')
     if round(reserva+remuneracion,2)!=100:st.error('Reserva y remuneración deben sumar 100%.')

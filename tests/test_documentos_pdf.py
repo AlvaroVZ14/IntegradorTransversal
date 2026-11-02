@@ -58,14 +58,12 @@ class DocumentosPDFTests(unittest.TestCase):
     def test_historical_configuration_fallback_never_changes_stored_quote(self):
         _,_,q=ejemplo();q['documento']={}
         original=deepcopy(q)
-        config={'emisor':{'razon_social':'Emisor ficticio'},'nombre':'Marca ficticia',
-                'condiciones':'Nuevas condiciones generales'}
-        preparado=documento_descarga(q,config)
+        preparado=documento_descarga(q)
         self.assertEqual(q,original)
-        self.assertEqual(preparado['documento']['emisor'],config['emisor'])
+        self.assertEqual(preparado['documento']['emisor'],{})
         self.assertEqual(preparado['condiciones'],original['condiciones'])
         preparado['documento']['emisor']['razon_social']='Otra razón social'
-        self.assertEqual(config['emisor']['razon_social'],'Emisor ficticio')
+        self.assertEqual(q,original)
 
     def test_filename_cannot_contain_paths(self):
         _,_,q=ejemplo();q['snapshot']['cliente']='Fundación / Norte: <demo> \\ prueba'

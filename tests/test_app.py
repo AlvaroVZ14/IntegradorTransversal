@@ -83,6 +83,30 @@ class FakeRepository:
         self.case_rows[0]['estado']='Vendido'
         self.case_rows[0]['version']+=1
         return deepcopy(self.sale_rows[-1])
+
+    def decide_quote(self,case,quote,data,operation_id):
+        if self.fail_write:raise ConnectionError('Fallo ficticio')
+        anterior=deepcopy(self.get_case(case['id']))
+        venta=None
+        if data['accion']=='vender':
+            if round(data['reserva_pct']+data['remuneracion_pct'],2)!=100:raise ValueError('Reparto inválido')
+            reserva=round(data['monto_clp']*data['reserva_pct']/100)
+            venta=dict(id=str(uuid4()),caso_id=case['id'],cotizacion_id=quote['id'],monto_clp=data['monto_clp'],
+                fecha_venta=data['fecha'],estado_pago=data['estado_pago'],anulada=False,version=1,
+                reserva_pct=data['reserva_pct'],remuneracion_pct=data['remuneracion_pct'],reserva_clp=reserva,
+                remuneracion_clp=data['monto_clp']-reserva,documento_numero=data.get('documento_numero',''))
+            self.sale_rows.append(venta)
+        row=self.update_case(case,{'estado':'En ejecución' if venta else 'Vendido' if data['accion']=='aceptar' else 'Cancelado'})
+        evento=dict(id=str(uuid4()),caso_id=case['id'],tipo=data['accion'],datos={},antes=anterior,
+            created_at=datetime.now(timezone.utc).isoformat(),deshecho_en=None)
+        self.event_rows.append(evento)
+        return dict(caso=row,venta=deepcopy(venta),evento=deepcopy(evento))
+
+    def undo_quote_decision(self,event_id):
+        e=next(e for e in self.event_rows if e['id']==event_id)
+        self.sale_rows=[v for v in self.sale_rows if v['caso_id']!=e['caso_id']]
+        e['deshecho_en']=datetime.now(timezone.utc).isoformat()
+        return self.update_case(self.get_case(e['caso_id']),{'estado':e['antes']['estado']})
     def undo_acceptance(self,sale_id,version):
         sale=next(s for s in self.sale_rows if s['id']==sale_id)
         case=self.get_case(sale['caso_id'])
@@ -223,6 +247,8 @@ class AppTests(unittest.TestCase):
         by_label(app.text_area,'Comentarios y objetivos (opcional)').set_value('Desarrollar habilidades de liderazgo.')
         by_label(app.button,'Guardar y cotizar ahora' if interno else 'Enviar solicitud').click().run()
         app.switch_page(PAGINAS[app.session_state['navigation']][0])
+        if interno:
+            by_label(app.text_area,'Detalle de la modalidad *').set_value('Online, dos horas con actividades guiadas.').run()
 
     def test_login_and_empty_validation(self):
         app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=20)
@@ -240,6 +266,9 @@ class AppTests(unittest.TestCase):
         self.assertTrue(any('Sin registros de correos' in x.value for x in app.info))
         self.assertTrue(app.get('download_button'))
         ir_a(app,'Casos y cotizaciones');self.assert_clean(app)
+        app.session_state['casos_pestana']='Tarifas y servicios'
+        app.session_state['opciones_portal']=True
+        app.run();self.assert_clean(app)
         self.assertTrue(app.get('download_button'))
 
     def test_client_cannot_register_status_route(self):

@@ -6,8 +6,8 @@ from utils.canales import CANALES
 from utils.mensaje_listo import copiar_mensaje
 from servicios.compartir import resolver_url,url_detectada,es_local,enlace_canal,archivos_qr,TEXTOS,texto_listo
 
-def abrir_configuracion():
-    st.session_state.abrir_configuracion=True
+def abrir_opciones_portal():
+    st.session_state.abrir_opciones_portal=True
     st.session_state.pending_navigation='Casos y cotizaciones'
 
 def tarjeta_compartir(datos):
@@ -42,7 +42,7 @@ def compartir_page(repo):
                     repo.save_quote_settings({**datos,'url_publica':base},row['version'])
                     st.success('URL pública guardada.');st.rerun()
                 except Exception:st.warning('No pudimos guardar la URL. Conservamos tus datos; vuelve a intentarlo.')
-    st.button('Editar URL pública en Configuración',on_click=abrir_configuracion,icon=':material/settings:')
+    st.button('Editar enlaces y contacto',on_click=abrir_opciones_portal,icon=':material/settings:')
     if not base or es_local(base):
         st.info('Completa una URL pública válida en Configuración para preparar los enlaces y QR.')
         return

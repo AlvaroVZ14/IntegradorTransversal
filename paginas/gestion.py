@@ -1,12 +1,13 @@
 """Las tres vistas del portal; los permisos también se aplican en Supabase."""
-from datetime import date, timedelta, datetime
+from datetime import date
 from uuid import uuid4
 
 import pandas as pd
 import streamlit as st
 
-from mente_futuro.domain import MODALITIES, PAYMENTS, SERVICES, STATES, TOPICS, code, csv_bytes, money, quote_total, today, validate_request
+from mente_futuro.domain import PAYMENTS, SERVICES, STATES, TOPICS, code, csv_bytes, money, today
 from servicios.documentos_cotizacion import generar_pdf,nombre_archivo
+from servicios.cotizacion_defaults import RESERVA_PCT_DEFAULT,REMUNERACION_PCT_DEFAULT
 from mente_futuro.ui import flash, show_error
 from utils.permisos import require_admin
 from utils.estados import etiqueta_estado, etiqueta_opcion_estado
@@ -61,7 +62,6 @@ def quote_history(quotes,repo=None,case=None):
                 from paginas.acciones_cotizacion import descargas,acciones,guardar_plantilla
                 # Conserva las descargas adicionales y las acciones existentes.
                 try:
-                    repo.quote_settings()
                     descargas(repo,q)
                     acciones(repo,case,q)
                     guardar_plantilla(repo,case,q)
@@ -81,64 +81,8 @@ def edit_case(repo, case):
     editar_caso(repo, case)
 
 
-def legacy_issue_quote(repo, case):
-    require_admin(repo)
-    if case["estado"] in ("Vendido", "En ejecución", "Finalizado", "Cancelado"):
-        st.info("Este caso está cerrado para nuevas cotizaciones. Puedes consultar las propuestas emitidas.")
-        return
-    tariffs = {t["id"]:t for t in _lectura(repo,"tarifas",repo.tariffs) if t["activa"] and t["servicio"] == case["servicio"]}
-    selected = st.selectbox("Tarifa de referencia",[None,*tariffs],format_func=lambda x:f"{tariffs[x]['nombre']} · {money(tariffs[x]['monto_clp'])}" if x else "Cotización personalizada",key=f"tariff_for_{case['id']}")
-    tariff = tariffs.get(selected)
-    if tariff:
-        st.caption(f"Referencia: {tariff['participantes']} participantes · {tariff['horas']} horas. {tariff['fuente']}")
-        if tariff["participantes"] != case["participantes"] or float(tariff["horas"]) != float(case["horas"]):
-            st.warning("La cantidad de participantes o las horas difieren de esta referencia. Ajusta el monto y el alcance antes de emitir.")
-    # Un cambio autoguardado del contacto no borra la propuesta que se prepara.
-    key = f"quote_{case['id']}_{selected}"
-    operation_key = f"quote_operation_{case['id']}"
-    if operation_key not in st.session_state:
-        st.session_state[operation_key] = str(uuid4())
-    with st.container(border=True, key="mfy_form_quote"):
-        titulo_seccion(2, "Tu propuesta a medida")
-        a,b,c = st.columns(3)
-        base = a.number_input("Valor base (CLP)",min_value=0,max_value=100000000000,value=int(tariff["monto_clp"]) if tariff else 0,step=1000,key=key+"base")
-        discount = b.number_input("Descuento (%)",0.0,100.0,0.0,step=0.5,key=key+"discount")
-        iva_labels = ["Exento de IVA", "IVA 19%"]
-        tax_default = {"Exento":0,"IVA 19%":1}.get(tariff.get("tratamiento_iva")) if tariff else None
-        tax_label = c.selectbox("Tratamiento de IVA *",iva_labels,index=tax_default,placeholder="Selecciona una opción",key=key+"tax")
-        detail = st.text_area("Detalle incluido en la propuesta *",value=tariff["detalle"] if tariff else case["detalle"],max_chars=5000,height=130,key=key+"detail")
-        validity = st.date_input("Válida hasta", value=today()+timedelta(days=30),min_value=today(), format="DD/MM/YYYY",key=key+"validity")
-        conditions = st.text_area("Condiciones comerciales",value="50% de anticipo para reservar la fecha y 50% al finalizar la actividad. Pago mediante transferencia. La fecha queda reservada una vez recibido el anticipo.",max_chars=5000,height=100,key=key+"conditions")
-        tax = 19 if tax_label == "IVA 19%" else 0
-        if tax_label:
-            st.metric("Total de la propuesta (CLP)",money(quote_total(base,discount,tax)))
-        st.caption("Revisa las condiciones para este servicio. Los descuentos son manuales y el documento conservará los valores al momento de emitir.")
-        submitted = st.button("Emitir y guardar cotización",type="primary",key=key+"emit")
-    if submitted:
-        if len(detail.strip()) < 2 or tax_label is None:
-            st.error("Agrega el detalle del servicio y selecciona el tratamiento de IVA.")
-        else:
-            try:
-                repo.issue_quote(case, dict(tarifa_id=selected, base_clp=base, descuento_pct=discount, iva_pct=tax, detalle=detail.strip(), condiciones=conditions.strip(), valida_hasta=validity.isoformat()),st.session_state[operation_key])
-                del st.session_state[operation_key]
-                flash("Cotización guardada. Está disponible en el historial de Administración.")
-            except Exception as error:
-                show_error(error)
-
-
 def issue_quote(repo,case):
     require_admin(repo)
-    if case.get('datos_incompletos'):
-        st.info('Faltan datos del caso. Complétalos en Datos y seguimiento antes de cotizar.')
-        return
-    try:
-        repo.quote_settings()
-    except Exception as error:
-        if isinstance(error,AttributeError) or getattr(error,'code','') in ('PGRST205','42P01','PGRST202'):
-            st.info('Activa 202610220003_cotizador_asistido.sql para el editor asistido. Mientras tanto, se conserva el cotizador anterior.')
-            legacy_issue_quote(repo,case)
-        else:show_error(error)
-        return
     from paginas.cotizador import editor_cotizacion
     editor_cotizacion(repo,case)
 
@@ -184,22 +128,25 @@ def sale_form(repo, case, quotes):
         titulo_seccion(3, "Registra la venta")
         sale_date = st.date_input("Fecha de aceptación",value=min(today(),date.fromisoformat(quote["valida_hasta"])),min_value=date.fromisoformat(quote["fecha_emision"]),max_value=today(),format="DD/MM/YYYY")
         payment = st.selectbox("Estado del pago",PAYMENTS)
+        a,b=st.columns(2)
+        reserva=a.number_input('Reserva (%)',0.0,100.0,RESERVA_PCT_DEFAULT,step=.5,key='venta_reserva_'+chosen)
+        remuneracion=b.number_input('Remuneración (%)',0.0,100.0,REMUNERACION_PCT_DEFAULT,step=.5,key='venta_remuneracion_'+chosen)
+        documento=st.text_input('N° de documento (opcional)',max_chars=100,key='venta_documento_'+chosen)
         confirmed = st.checkbox("El cliente aceptó esta cotización")
         st.caption("Registrar venta confirma la aceptación; la casilla anterior queda como apoyo opcional.")
         submitted = st.form_submit_button("Registrar venta",type="primary")
     if submitted:
+        if round(reserva+remuneracion,2)!=100:
+            st.error('Reserva y remuneración deben sumar 100%.');return
         if sale_date > date.fromisoformat(quote["valida_hasta"]):
             st.error("La fecha de aceptación debe estar dentro de la vigencia de la cotización.")
         else:
             try:
-                venta=repo.record_sale(case,quote,sale_date,payment)
-                from utils.componentes import preparar_celebracion
-                preparar_celebracion('venta:'+str(venta['id']),'¡Venta registrada! Un nuevo paso para tu negocio.')
-                if venta and venta.get("caso_version_aceptada") and venta.get("estado_caso_anterior"):
-                    st.session_state.deshacer_venta={"id":venta["id"],"caso_id":case["id"],
-                        "version":venta["caso_version_aceptada"],
-                        "vence":datetime.fromisoformat(venta["created_at"].replace("Z","+00:00")).timestamp()+10}
-                flash("Venta guardada. El dashboard ya puede incluirla en el período correspondiente.")
+                from paginas.acciones_cotizacion import _decidir
+                op=st.session_state.setdefault('venta_operacion_'+chosen,str(uuid4()))
+                _decidir(repo,case,quote,dict(accion='vender',monto_clp=int(quote['total_clp']),
+                    fecha=sale_date.isoformat(),estado_pago=payment,reserva_pct=reserva,
+                    remuneracion_pct=remuneracion,documento_numero=documento),op)
             except Exception as error:
                 show_error(error)
 
@@ -316,9 +263,6 @@ def tariffs_content(repo):
     options = {t["id"]:t for t in tariffs}
     selected = st.selectbox("Crear o editar una tarifa",[None,*options],format_func=lambda x:options[x]["nombre"] if x else "+ Nueva tarifa")
     tariff = options.get(selected,{})
-    asistido=False
-    try:repo.quote_settings();asistido=True
-    except Exception:pass
     with st.form(f"edit_tariff_{selected}_{tariff.get('version',0)}"):
         titulo_seccion(1, "Configura el servicio")
         name = st.text_input("Nombre del plan",value=tariff.get("nombre",""),max_chars=180)
@@ -326,10 +270,9 @@ def tariffs_content(repo):
         with a:
             service = st.selectbox("Servicio asociado",SERVICES,index=SERVICES.index(tariff.get("servicio",SERVICES[0])))
             tema=None
-            if asistido:
-                temas=[None,*TOPICS]
-                actual=tariff.get('tematica') if tariff.get('tematica') in temas else None
-                tema=st.selectbox('Temática de referencia (opcional)',temas,index=temas.index(actual),format_func=lambda x:x or 'Todas las temáticas')
+            temas=[None,*TOPICS]
+            actual=tariff.get('tematica') if tariff.get('tematica') in temas else None
+            tema=st.selectbox('Temática de referencia (opcional)',temas,index=temas.index(actual),format_func=lambda x:x or 'Todas las temáticas')
             amount = st.number_input("Valor de referencia (CLP)",0,100000000000,int(tariff.get("monto_clp",0)),step=1000)
             people = st.number_input("Participantes de referencia",1,10000,tariff.get("participantes",1))
         with b:
@@ -346,7 +289,7 @@ def tariffs_content(repo):
         else:
             try:
                 datos=dict(nombre=name.strip(),servicio=service,monto_clp=amount,participantes=people,horas=hours,tratamiento_iva=tax,detalle=detail.strip(),fuente=source.strip(),activa=active)
-                if asistido:datos['tematica']=tema
+                datos['tematica']=tema
                 repo.save_tariff(datos,tariff or None)
                 flash("Tarifa guardada.")
             except Exception as error:
@@ -356,17 +299,19 @@ def tariffs_content(repo):
 def cases_page(repo):
     require_admin(repo)
     encabezado_pagina("Casos y cotizaciones", "Cada solicitud, su propuesta y el siguiente paso.", "SEGUIMIENTO", "▤", mostrar_metricas=False)
-    configurar=st.session_state.pop('abrir_configuracion',False)
-    if configurar:st.session_state.casos_pestana='Configuración'
-    cases_tab, tariffs_tab, config_tab = st.tabs(["Registro de casos", "Tarifas y servicios","Configuración"],
+    if st.session_state.pop('abrir_opciones_portal',False):
+        st.session_state.casos_pestana='Tarifas y servicios'
+        st.session_state.opciones_portal=True
+    if st.session_state.get('casos_pestana')=='Configuración':st.session_state.casos_pestana='Tarifas y servicios'
+    cases_tab, tariffs_tab = st.tabs(["Registro de casos", "Tarifas y servicios"],
                                                key='casos_pestana',on_change='rerun')
     with cases_tab:
         cases_content(repo)
     with tariffs_tab:
         tariffs_content(repo)
-    with config_tab:
-        from paginas.cotizador import configuracion_cotizador
-        configuracion_cotizador(repo)
+        if tariffs_tab.open:
+            from paginas.opciones_portal import opciones_portal
+            opciones_portal(repo)
     from paginas.acciones_cotizacion import mostrar_dialogo
     mostrar_dialogo(repo)
 

@@ -9,33 +9,39 @@ import unicodedata
 from mente_futuro.domain import code, money,quote_total
 from mente_futuro.presentation import LOGO
 from servicios.cotizacion_asistida import SECCIONES, EMISOR
+from servicios.cotizacion_defaults import NOMBRE_EMPRESA,NOMBRE_ARCHIVO_DEFAULT,CONDICIONES_DEFAULT
 
 
-def documento_descarga(cotizacion,config):
-    """Completa documentos históricos en memoria; nunca altera la versión guardada."""
+def documento_descarga(cotizacion):
+    """Usa el snapshot y valores públicos; nunca consulta ajustes ni altera versiones."""
     q=deepcopy(cotizacion)
-    d=q.setdefault('documento',{})
-    if not d.get('emisor'):d['emisor']=deepcopy(config.get('emisor',{}))
-    if 'marca' not in d:
-        d['marca']={k:deepcopy(config[k]) for k in ('nombre','sitio_web','correo_contacto','logo_base64') if config.get(k)}
-    if 'condiciones' not in q:q['condiciones']=config.get('condiciones','')
+    d=q.get('documento') or {};q['documento']=d
+    d.setdefault('emisor',{})
+    d.setdefault('marca',{'nombre':NOMBRE_EMPRESA})
+    if 'condiciones' not in q:q['condiciones']=CONDICIONES_DEFAULT
     return q
 
 
 def nombre_archivo(cotizacion,extension='pdf'):
-    cliente=str(cotizacion.get('snapshot',{}).get('cliente') or 'Cliente')
+    documento=cotizacion.get('documento') or {}
+    cliente=str(documento.get('cliente') or cotizacion.get('snapshot',{}).get('cliente') or 'Cliente')
     cliente=unicodedata.normalize('NFKD',cliente).encode('ascii','ignore').decode()
     cliente=re.sub(r'[^A-Za-z0-9_-]+','_',cliente).strip('_')[:75] or 'Cliente'
-    return f"Cotizacion_{code(cotizacion,'COT')}_{cliente}.{extension}"
+    base=str(documento.get('nombre_archivo') or NOMBRE_ARCHIVO_DEFAULT)
+    base=base.replace('{folio}',code(cotizacion,'COT')).replace('{cliente}',cliente)
+    base=unicodedata.normalize('NFKD',base).encode('ascii','ignore').decode()
+    base=re.sub(r'[^A-Za-z0-9_-]+','_',base).strip('_')[:160] or 'Cotizacion'
+    return f'{base}.{extension}'
 
 
 def contenido(cotizacion):
     d=cotizacion.get('documento') or {}
-    s={**cotizacion['snapshot'],**{k:d[k] for k in ('modalidad','participantes','horas') if k in d}}
+    s={**cotizacion['snapshot'],**{k:d[k] for k in ('cliente','servicio','modalidad','participantes','horas') if k in d}}
+    if d.get('detalle_modalidad'):s['modalidad']=d['detalle_modalidad']
     emisor=d.get('emisor',{})
     contacto=[('Cliente',s.get('cliente','')),('Contacto',s.get('contacto','')),('Correo',s.get('email','')),
         ('Teléfono',s.get('telefono','')),('Servicio',s.get('servicio','')),('Temática',s.get('tematica','')),
-        ('Modalidad',s.get('modalidad','')),('Participantes',s.get('participantes','')),('Horas',f"{float(s.get('horas',0)):g}".replace('.',',')),
+        ('Modalidad',s.get('modalidad','')),('Participantes',s.get('participantes','')),('Horas',f"{float(s.get('horas') or 0):g}".replace('.',',')),
         ('Lugar',s.get('lugar',''))]
     bloques=[('Detalle del servicio',cotizacion['detalle'])]
     for k,label in SECCIONES.items():
@@ -54,7 +60,7 @@ def contenido(cotizacion):
         contacto=[(k,str(v or 'Por definir')) for k,v in contacto],bloques=bloques,importes=importes,
         condiciones=cotizacion.get('condiciones',''),marca=d.get('marca') or {},
         servicio=s.get('servicio') or 'Servicio',participantes=str(s.get('participantes') or 'Por definir'),
-        horas=f"{float(s.get('horas',0)):g}".replace('.',','),modalidad=s.get('modalidad') or 'Por definir',
+        horas=f"{float(s.get('horas') or 0):g}".replace('.',','),modalidad=s.get('modalidad') or 'Por definir',
         detalle=cotizacion['detalle'],base=money(cotizacion['base_clp']),total=money(cotizacion['total_clp']))
 
 

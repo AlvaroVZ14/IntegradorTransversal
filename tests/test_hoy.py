@@ -151,14 +151,22 @@ class HoyUITests(unittest.TestCase):
         self.assertEqual(len(repo.sale_rows),2)
 
     def test_configuration_preserves_issuer_and_quote_settings(self):
-        app,repo=self.setup_app();app.run();ir_a(app,'Casos y cotizaciones')
+        _,repo=self.setup_app()
+        # AppTest aún no transmite la selección de las pestañas dinámicas al
+        # enviar formularios. La ubicación se prueba en test_app; aquí, el guardado.
+        app=base.AppTest.from_string('''
+from servicios.repositorio import Repository
+from paginas.hoy import configurar_hoy
+repo=Repository(None)
+configurar_hoy(repo,repo.quote_settings())
+''').run()
         emisor=deepcopy(repo.settings_row['datos']['emisor'])
         by_label(app.number_input,'Días sin respuesta para sugerir seguimiento').set_value(8)
         by_label(app.button,'Guardar avisos y mensajes').click().run()
         self.assert_clean(app)
         self.assertEqual(repo.settings_row['datos']['hoy']['dias_sin_respuesta'],8)
         self.assertEqual(repo.settings_row['datos']['emisor'],emisor)
-        by_label(app.button,'Guardar configuración').click().run()
+        app.run()
         self.assert_clean(app);self.assertEqual(repo.settings_row['datos']['hoy']['dias_sin_respuesta'],8)
 
     def test_payment_and_missing_data_shortcuts_and_email_review(self):

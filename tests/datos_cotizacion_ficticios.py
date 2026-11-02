@@ -1,5 +1,5 @@
 """Fixture compartido por pruebas y revisión de documentos; no son datos reales."""
-from servicios.cotizacion_asistida import prellenar,configuracion,datos_emision
+from servicios.cotizacion_asistida import prellenar,datos_emision
 from mente_futuro.domain import today,quote_total
 
 
@@ -11,10 +11,10 @@ def ejemplo():
     emisor=dict(razon_social='Consultora Horizonte SpA',rut='12.345.678-5',giro='Capacitación y consultoría',
         direccion='Calle Ficticia 123',comuna='Antofagasta',correo='consultora@example.test',telefono='+56 9 1234 5678',
         representante='Camila Rojas',cuenta_bancaria='Banco ficticio · Cuenta corriente 123456')
-    config=configuracion(dict(emisor=emisor))
     tarifa=dict(id='tarifa-ficticia',nombre='Taller de colaboración',servicio=caso['servicio'],tematica=caso['tematica'],
         horas=4,participantes=20,monto_clp=1250000,tratamiento_iva='Exento',detalle='Taller presencial con actividades prácticas de colaboración.',activa=True)
-    d=prellenar(caso,[tarifa],[],config)
+    d=prellenar(caso,[tarifa],[])
+    d['emisor']=emisor # Snapshot histórico ficticio; no se obtiene de ajustes.
     d['descuento_pct']=10.0;d['descuento_motivo']='Convenio institucional ficticio'
     d['textos'].update(descripcion='Experiencia de aprendizaje para fortalecer la colaboración del equipo.',
         metodologia='Actividades participativas, desafíos en grupos pequeños y reflexión guiada.',

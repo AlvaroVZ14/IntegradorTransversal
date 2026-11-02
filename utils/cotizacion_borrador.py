@@ -4,7 +4,7 @@ import streamlit as st
 from streamlit.components.v2 import component
 from servicios.cotizacion_asistida import SECCIONES
 
-TEXTOS=['detalle','condiciones','descuento_motivo',*SECCIONES]
+TEXTOS=['cliente','servicio','detalle_modalidad','nombre_archivo','detalle','condiciones','descuento_motivo',*SECCIONES]
 
 
 def capturar(repo,caso_id,draft):
