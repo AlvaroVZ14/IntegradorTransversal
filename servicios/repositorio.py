@@ -150,10 +150,21 @@ class Repository:
 
     def issue_quote(self, case, data, operation_id):
         self.owner_only()
-        return escritura_confirmada(self.client.rpc("mf_emitir_cotizacion", {
+        # La ruta versionada falla antes de insertar si falta aplicar la migración.
+        # Evita que un servidor antiguo ignore silenciosamente la fecha elegida.
+        rpc='mf_emitir_propuesta_v2' if (data.get('documento') or {}).get('formato_version')==2 else 'mf_emitir_cotizacion'
+        parametros={
             "p_caso_id": case["id"], "p_version": case["version"],
             "p_operacion_id": operation_id, "p_datos": data,
-        }).execute().data)
+        }
+        try:resultado=self.client.rpc(rpc,parametros).execute().data
+        except Exception as error:
+            from mente_futuro.domain import today
+            if rpc!='mf_emitir_propuesta_v2' or getattr(error,'code','')!='PGRST202' or data.get('fecha_emision')!=today().isoformat():raise
+            # El RPC anterior ya emite con hoy en Chile. Solo es compatible
+            # con esa fecha; nunca se reintenta un error de ejecución/permiso.
+            resultado=self.client.rpc('mf_emitir_cotizacion',parametros).execute().data
+        return escritura_confirmada(resultado)
 
     def record_sale(self, case, quote, sale_date, payment):
         self.owner_only()

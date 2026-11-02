@@ -68,7 +68,8 @@ def faltantes(caso,borrador):
     if borrador.get('iva_pct') not in (0,19):falta.append(('Tratamiento de IVA','importes'))
     try:
         from datetime import date
-        if date.fromisoformat(borrador['valida_hasta'])<today():falta.append(('Vigencia no vencida','condiciones'))
+        emision=date.fromisoformat(borrador.get('fecha_emision') or today().isoformat())
+        if date.fromisoformat(borrador['valida_hasta'])<emision:falta.append(('Vigencia posterior a la emisión','condiciones'))
         quote_total(borrador['base_clp'],borrador['descuento_pct'],borrador['iva_pct'])
     except (ValueError,KeyError,TypeError):falta.append(('Importes y vigencia válidos','importes'))
     return falta
@@ -81,13 +82,15 @@ def datos_emision(borrador):
     documento['detalle']=detalle if len(detalle)>=2 else f"{documento.get('servicio','Servicio')} · {documento.get('detalle_modalidad','')}"
     if documento.get('descuento_pct',0)>0 and not documento.get('descuento_motivo','').strip():
         documento['descuento_motivo']=DESCUENTO_MOTIVO_DEFAULT
-    return {**{k:documento[k] for k in campos},'documento':documento}
+    return {**{k:documento[k] for k in campos},'fecha_emision':documento.get('fecha_emision') or today().isoformat(),'documento':documento}
 
 
 def mensaje_cliente(cotizacion):
     from mente_futuro.domain import code
+    from servicios.propuesta_documento import folio
     datos=cotizacion['snapshot']
-    asunto=f"Propuesta {code(cotizacion,'COT')} · {datos.get('servicio','Mente y Futuro')}"
+    codigo=folio(cotizacion) if (cotizacion.get('documento') or {}).get('formato_version')==2 else code(cotizacion,'COT')
+    asunto=f"Propuesta {codigo} · {datos.get('servicio','Mente y Futuro')}"
     texto=(f"Hola {datos.get('contacto','')},\n\nTe comparto nuestra propuesta de {datos.get('servicio','capacitación')} "
            f"para {datos.get('cliente','tu organización')}, por un total de {money(cotizacion['total_clp'])}.\n"
            f"La propuesta está vigente hasta {__import__('datetime').date.fromisoformat(cotizacion['valida_hasta']):%d/%m/%Y}.\n\n"

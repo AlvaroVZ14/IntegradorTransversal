@@ -28,7 +28,9 @@ def nombre_archivo(cotizacion,extension='pdf'):
     cliente=unicodedata.normalize('NFKD',cliente).encode('ascii','ignore').decode()
     cliente=re.sub(r'[^A-Za-z0-9_-]+','_',cliente).strip('_')[:75] or 'Cliente'
     base=str(documento.get('nombre_archivo') or NOMBRE_ARCHIVO_DEFAULT)
-    base=base.replace('{folio}',code(cotizacion,'COT')).replace('{cliente}',cliente)
+    from servicios.propuesta_documento import folio
+    codigo=folio(cotizacion) if documento.get('formato_version')==2 else code(cotizacion,'COT')
+    base=base.replace('{folio}',codigo).replace('{cliente}',cliente)
     base=unicodedata.normalize('NFKD',base).encode('ascii','ignore').decode()
     base=re.sub(r'[^A-Za-z0-9_-]+','_',base).strip('_')[:160] or 'Cotizacion'
     return f'{base}.{extension}'
@@ -64,7 +66,7 @@ def contenido(cotizacion):
         detalle=cotizacion['detalle'],base=money(cotizacion['base_clp']),total=money(cotizacion['total_clp']))
 
 
-def generar_word(cotizacion):
+def _generar_word_legacy(cotizacion):
     from docx import Document
     from docx.shared import Inches, Pt, RGBColor
     from docx.oxml import OxmlElement
@@ -111,7 +113,7 @@ def generar_word(cotizacion):
     return salida.getvalue()
 
 
-def generar_pdf(cotizacion):
+def _generar_pdf_legacy(cotizacion):
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet,ParagraphStyle
@@ -202,3 +204,17 @@ def generar_pdf(cotizacion):
     SimpleDocTemplate(salida,pagesize=A4,leftMargin=margen,rightMargin=margen,topMargin=35,bottomMargin=48,
         title='Cotización '+datos['codigo'],author=str(nombre)).build(historia,onFirstPage=pie,onLaterPages=pie)
     return salida.getvalue()
+
+
+def generar_word(cotizacion):
+    if (cotizacion.get('documento') or {}).get('formato_version')==2:
+        from servicios.documentos_propuesta import generar_word as generar
+        return generar(cotizacion)
+    return _generar_word_legacy(cotizacion)
+
+
+def generar_pdf(cotizacion):
+    if (cotizacion.get('documento') or {}).get('formato_version')==2:
+        from servicios.documentos_propuesta import generar_pdf as generar
+        return generar(cotizacion)
+    return _generar_pdf_legacy(cotizacion)

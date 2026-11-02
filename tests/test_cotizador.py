@@ -84,7 +84,7 @@ class EditorUITests(unittest.TestCase):
     def test_generate_one_click_and_draft_survives_new_session(self):
         app,repo=self.abrir()
         self.assertTrue(any('Prellenado automáticamente' in i.value for i in app.info))
-        by_label(app.text_area,'Objetivos').set_value('Objetivos ficticios editados.').run()
+        by_label(app.text_area,'Objetivo general').set_value('Objetivos ficticios editados.').run()
         self.assertEqual(len(repo.quote_rows),0)
         cid=repo.case_rows[0]['id']
         self.assertEqual(repo.draft_rows[cid]['datos']['textos']['objetivos'],'Objetivos ficticios editados.')
@@ -92,7 +92,7 @@ class EditorUITests(unittest.TestCase):
         fresh.session_state['auth_client']=repo.client;fresh.run();ir_a(fresh,'Casos y cotizaciones')
         by_label(fresh.selectbox,'Abrir detalle').set_value(cid).run()
         self.assert_clean(fresh)
-        self.assertEqual(by_label(fresh.text_area,'Objetivos').value,'Objetivos ficticios editados.')
+        self.assertEqual(by_label(fresh.text_area,'Objetivo general').value,'Objetivos ficticios editados.')
         by_label(fresh.button,'Generar cotización').click().run()
         self.assert_clean(fresh)
         self.assertEqual(len(repo.quote_rows),1)
@@ -107,7 +107,7 @@ class EditorUITests(unittest.TestCase):
         by_label(app.number_input,'Valor base (CLP)').set_value(1250000).run()
         by_label(app.number_input,'Descuento (%)').set_value(10.0).run()
         by_label(app.text_input,'Motivo del descuento').set_value('Convenio ficticio').run()
-        by_label(app.selectbox,'Tratamiento de IVA *').set_value('IVA 19%').run()
+        by_label(app.toggle,'Exento de IVA').set_value(False).run()
         by_label(app.text_area,'Condiciones comerciales').set_value('Acuerdo específico ficticio').run()
         # Simula un borrador antiguo con emisor vacío y configuración ya completada.
         repo.draft_rows[cid]['datos']['emisor']={}
@@ -118,7 +118,7 @@ class EditorUITests(unittest.TestCase):
         self.assert_clean(fresh)
         self.assertFalse(any('Administración: completa' in w.value for w in fresh.warning))
         self.assertNotIn('Vista previa',[tab.label for tab in fresh.tabs])
-        self.assertFalse(any(m.label in ('Total previsto','Total de la propuesta (CLP)') for m in fresh.metric))
+        self.assertEqual(by_label(fresh.metric,'Total de la propuesta (CLP)').value,'$1.338.750')
         self.assertFalse(any('Actualizar datos del emisor' in b.label for b in fresh.button))
         by_label(fresh.button,'Generar cotización').click().run()
         self.assert_clean(fresh)
@@ -145,10 +145,10 @@ class EditorUITests(unittest.TestCase):
         app,repo=self.abrir()
         by_label(app.number_input,'Descuento (%)').set_value(15.0).run()
         by_label(app.text_input,'Motivo del descuento').set_value('Convenio ficticio').run()
-        by_label(app.text_area,'Objetivos').set_value('Cambio temporal').run()
+        by_label(app.text_area,'Objetivo general').set_value('Cambio temporal').run()
         reset=next(b for b in app.button if b.key=='reset_'+repo.case_rows[0]['id']+'objetivos')
         reset.click().run()
-        self.assertEqual(by_label(app.text_area,'Objetivos').value,repo.case_rows[0]['detalle'])
+        self.assertEqual(by_label(app.text_area,'Objetivo general').value,repo.case_rows[0]['detalle'])
         by_label(app.button,'Generar cotización').click().run()
         self.assert_clean(app);self.assertEqual(repo.quote_rows[0]['descuento_motivo'],'Convenio ficticio')
 

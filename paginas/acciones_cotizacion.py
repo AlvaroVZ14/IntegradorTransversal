@@ -46,6 +46,16 @@ def descargas(repo,q,prefijo='hist'):
         a,b=st.columns(2)
         a.download_button('Descargar Word',word,file_name=nombre_archivo(q,'docx'),mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',key=prefijo+'_word_'+q['id'])
         b.download_button('Descargar PDF',pdf,file_name=nombre_archivo(q),mime='application/pdf',key=prefijo+'_pdf_'+q['id'])
+        from urllib.parse import quote,urlencode
+        asunto,texto=mensaje_cliente(q)
+        a.link_button('Redactar correo','mailto:'+quote(q['snapshot'].get('email',''),safe='@')+'?'+urlencode({'subject':asunto,'body':texto}))
+        with st.expander('Mensaje para WhatsApp'):
+            from utils.mensaje_listo import copiar_mensaje
+            st.text(texto)
+            copiar_mensaje(texto,prefijo+'_wa_copy_'+q['id'])
+            enlace=enlace_whatsapp(q['snapshot'].get('telefono',''),texto)
+            if enlace:st.link_button('Abrir WhatsApp',enlace,key=prefijo+'_wa_open_'+q['id'])
+            st.caption('Adjunta el documento descargado a mano. Abrir el enlace no envía el mensaje.')
     except Exception:
         st.warning('No pudimos preparar los documentos. La versión sigue guardada; puedes reintentar la descarga.')
     st.button('Enviar al cliente',key=prefijo+'_send_'+q['id'],on_click=_abrir_dialogo,args=('envio',q))
@@ -229,12 +239,15 @@ def historial_eventos(repo,caso):
 def guardar_plantilla(repo,caso,q):
     documento=q.get('documento') or {}
     if not documento.get('textos'):return
+    textos=dict(documento['textos'])
+    for nombre in ('objetivos_especificos','momentos'):
+        if nombre in documento:textos[nombre]=[{k:v for k,v in item.items() if k!='id'} for item in documento[nombre]]
     existentes=repo.program_templates()
-    if any(p.get('textos')==documento['textos'] for p in existentes):return
+    if any(p.get('textos')==textos for p in existentes):return
     if st.button('Guardar como plantilla',key='save_template_'+q['id']):
         try:
             existentes=repo.program_templates()
-            if not any(p['servicio']==caso['servicio'] and p.get('tematica')==caso['tematica'] and p.get('textos')==documento['textos'] for p in existentes):
-                repo.save_program_template(dict(nombre=f"{caso['servicio']} · {caso['tematica']}",servicio=caso['servicio'],tematica=caso['tematica'],textos=documento['textos']))
+            if not any(p['servicio']==caso['servicio'] and p.get('tematica')==caso['tematica'] and p.get('textos')==textos for p in existentes):
+                repo.save_program_template(dict(nombre=f"{caso['servicio']} · {caso['tematica']}",servicio=caso['servicio'],tematica=caso['tematica'],textos=textos))
             st.success('Plantilla disponible para futuras propuestas. La versión emitida no cambió.')
         except Exception:st.warning('No pudimos guardar la plantilla. Tus descargas siguen disponibles.')

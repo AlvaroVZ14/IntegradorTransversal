@@ -72,7 +72,7 @@ class FakeRepository:
         self.case_rows.append(row)
         return row if self.is_owner else {'codigo': 'MF-2026-0001'}
     def issue_quote(self,case,data,operation_id):
-        row=dict(deepcopy(data),id=str(uuid4()),operacion_id=operation_id,version_cotizacion=len(self.quote_rows)+1,numero=len(self.quote_rows)+1,caso_id=case['id'],created_at=today().isoformat(),fecha_emision=today().isoformat(),snapshot=deepcopy(case),total_clp=quote_total(data['base_clp'],data['descuento_pct'],data['iva_pct']))
+        row=dict(deepcopy(data),id=str(uuid4()),operacion_id=operation_id,version_cotizacion=len(self.quote_rows)+1,numero=len(self.quote_rows)+1,caso_id=case['id'],created_at=today().isoformat(),fecha_emision=data.get('fecha_emision') or today().isoformat(),snapshot=deepcopy(case),total_clp=quote_total(data['base_clp'],data['descuento_pct'],data['iva_pct']))
         self.quote_rows.insert(0,row)
         self.case_rows[0]['estado']='Cotizado'
         self.case_rows[0]['version']+=1
@@ -360,7 +360,7 @@ class AppTests(unittest.TestCase):
         self.create_request(app)
         self.assert_clean(app)
         by_label(app.number_input,'Valor base (CLP)').set_value(420000)
-        by_label(app.selectbox,'Tratamiento de IVA *').set_value('Exento de IVA')
+        by_label(app.toggle,'Exento de IVA').set_value(True)
         by_label(app.button,'Emitir y guardar cotización').click().run()
         self.assert_clean(app)
         self.assertEqual(repo.quote_rows[0]['total_clp'],420000)
@@ -670,7 +670,7 @@ class AppTests(unittest.TestCase):
     def test_acceptance_can_be_undone_with_backend_support(self):
         app,repo=self.setup_app();app.run();self.create_request(app)
         by_label(app.number_input,'Valor base (CLP)').set_value(420000)
-        by_label(app.selectbox,'Tratamiento de IVA *').set_value('Exento de IVA')
+        by_label(app.toggle,'Exento de IVA').set_value(True)
         by_label(app.button,'Emitir y guardar cotización').click().run()
         by_label(app.button,'Registrar venta').click().run()
         self.assert_clean(app)

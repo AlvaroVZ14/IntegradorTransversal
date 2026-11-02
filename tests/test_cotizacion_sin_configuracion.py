@@ -75,7 +75,7 @@ class FlujoSinConfiguracionTests(unittest.TestCase):
         self.assertEqual(base.by_label(app.text_area,'Condiciones comerciales').value,CONDICIONES_DEFAULT)
         self.assertIn('Reunión diagnóstica',base.by_label(app.text_area,'Qué incluye').value)
         base.by_label(app.text_area,'Condiciones comerciales').set_value('Acuerdo exclusivo ficticio').run()
-        for label in ('Objetivos','Metodología','Descripción','Dirigido a','Qué incluye'):
+        for label in ('Objetivo general','Frase introductoria de metodología','Descripción del servicio','Dirigido a','Qué incluye'):
             base.by_label(app.text_area,label).set_value('').run()
         cid=repo.case_rows[0]['id']
         fresh=AppTest.from_file(str(base.ROOT/'app.py'),default_timeout=20)
