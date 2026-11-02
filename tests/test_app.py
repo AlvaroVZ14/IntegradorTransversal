@@ -220,6 +220,9 @@ class AppTests(unittest.TestCase):
         cookies.start();self.addCleanup(cookies.stop)
         from mente_futuro.domain import SERVICES,TOPICS
         from servicios.formulario_publico import configuracion_visible
+        from servicios.pago_cotizacion import normalizar_pago
+        p=patch('paginas.cotizador.leer_pago_secrets',return_value=normalizar_pago({}))
+        p.start();self.addCleanup(p.stop)
         for target,value in [('servicios.formulario.catalogo_publico',dict(servicios=SERVICES,tematicas=TOPICS,version=2,pendiente=False)),('paginas.formulario.configuracion_publica',configuracion_visible({}))]:
             p=patch(target,return_value=value);p.start();self.addCleanup(p.stop)
         app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=20)

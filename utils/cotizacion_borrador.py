@@ -3,12 +3,14 @@ from pathlib import Path
 import streamlit as st
 from streamlit.components.v2 import component
 from servicios.cotizacion_asistida import SECCIONES
+from servicios.pago_cotizacion import CAMPOS_PAGO
 
 TEXTOS=['cliente','servicio','detalle_modalidad','jornadas_duracion','item_descripcion','descuento_periodo','nombre_archivo','detalle','condiciones','descuento_motivo',*SECCIONES]
 
 
 def rutas_texto(datos):
     rutas={f:('textos',f) if f in SECCIONES else (f,) for f in TEXTOS}
+    if 'pago' in datos:rutas.update({f:('pago',f) for f in CAMPOS_PAGO})
     for nombre,campos in [('objetivos_especificos',('texto',)),('momentos',('etiqueta','descripcion'))]:
         for i,item in enumerate(datos.get(nombre,[])):
             for campo in campos:rutas[f'{nombre}_{item["id"]}_{campo}']=(nombre,i,campo)

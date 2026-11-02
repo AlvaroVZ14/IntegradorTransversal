@@ -14,6 +14,7 @@ from utils.componentes import titulo_seccion
 from utils.cotizacion_borrador import capturar,valores_texto
 from servicios.propuesta_documento import ampliar_borrador
 from servicios.cotizacion_defaults import VIGENCIA_DIAS_DEFAULT,CONDICIONES_DEFAULT,CONDICION_IVA_AFECTA_DEFAULT
+from servicios.pago_cotizacion import CAMPOS_PAGO,LIMITES_PAGO,leer_pago_secrets,pago_para_documento,normalizar_pago
 
 
 def _guardar(repo,caso_id,draft):
@@ -99,6 +100,12 @@ def editor_cotizacion(repo,caso):
     for nombre,valor in inicial.items():
         if nombre not in d:d[nombre]=deepcopy(valor);draft.update(pendiente=True,reintento=0)
     ampliar_borrador(d,caso)
+    if 'pago' not in d:
+        d['pago']=leer_pago_secrets();draft.update(pendiente=True,reintento=0)
+    elif not isinstance(d['pago'],dict):
+        d['pago']=normalizar_pago(d['pago']);draft.update(pendiente=True,reintento=0)
+    if 'incluir_pago' not in d:
+        d['incluir_pago']=True;draft.update(pendiente=True,reintento=0)
     vigencia=(date.fromisoformat(d['fecha_emision'])+timedelta(days=VIGENCIA_DIAS_DEFAULT)).isoformat()
     if d.get('vigencia_automatica') and d['valida_hasta']!=vigencia:
         d['valida_hasta']=vigencia
@@ -224,6 +231,13 @@ def editor_cotizacion(repo,caso):
             campo('nombre_archivo','Nombre del archivo (sin extensión)',max_chars=180,
                   help='Puedes conservar {folio} y {cliente}; se reemplazan al descargar.')
             st.caption('Una condición por línea. Estos valores se editan solo para esta cotización.')
+            st.subheader('Datos para el pago')
+            campo('incluir_pago','Incluir datos de pago','toggle')
+            for nombre,etiqueta in CAMPOS_PAGO.items():
+                campo(nombre,etiqueta,grupo='pago',max_chars=LIMITES_PAGO[nombre])
+            st.caption('Se guardan solo en esta cotización y se incluyen al final del documento.')
+            if d['incluir_pago'] and not pago_para_documento(d):
+                st.info('Los datos de pago están incompletos. Puedes completar estos campos o generar la cotización sin esta sección.')
         antiguo=st.button('Emitir y guardar cotización',key='emit_legacy_'+caso['id'])
     with st.container(key='mfy_generate'):
         generar=st.button('Generar cotización',type='primary',key='generate_'+caso['id'],width='stretch')

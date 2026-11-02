@@ -4,6 +4,7 @@ from datetime import date
 from uuid import uuid4
 from mente_futuro.domain import today,money,quote_total
 from servicios.cotizacion_defaults import NUMERO_SECCION_INICIAL
+from servicios.pago_cotizacion import pago_para_documento
 
 MESES=('enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre')
 
@@ -50,10 +51,12 @@ def modelo(q):
     objetivos=[i.get('texto','') if isinstance(i,dict) else str(i) for i in d.get('objetivos_especificos',[])]
     momentos=[i if isinstance(i,dict) else {'descripcion':str(i)} for i in d.get('momentos',[])]
     secciones=[]
+    pago=pago_para_documento(d)
     for clave,titulo in [('objetivos','Objetivos'),('metodologia','Metodología'),('detalle','Detalle del servicio'),('valor','Valor del servicio'),('condiciones','Condiciones generales')]:
         if clave in ('objetivos','metodologia') and not mostrar.get(clave,True):continue
         if clave=='condiciones' and not d.get('mostrar_condiciones',True):continue
         secciones.append((clave,NUMERO_SECCION_INICIAL+len(secciones),titulo))
+    if pago:secciones.append(('pago',NUMERO_SECCION_INICIAL+len(secciones),'Datos para el pago'))
     return dict(folio=folio(q),fecha=fecha_larga(d.get('fecha_emision') or q['fecha_emision']),
         cliente=s.get('cliente',''),servicio=s.get('servicio',''),modalidad=modalidad,
         participantes=str(s.get('participantes') or '-'),dirigido_a=(t.get('dirigido_a') or '-') if mostrar.get('dirigido_a',True) else '-',
@@ -66,4 +69,4 @@ def modelo(q):
         descuento=float(q['descuento_pct']),motivo=q.get('descuento_motivo') or d.get('descuento_motivo',''),
         periodo=d.get('descuento_periodo',''),exento=q['iva_pct']==0,
         condiciones=[x.lstrip('• ').strip() for x in q.get('condiciones','').splitlines() if x.strip()],
-        secciones=secciones,version=q.get('version_cotizacion',1))
+        pago=pago,secciones=secciones,version=q.get('version_cotizacion',1))

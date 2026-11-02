@@ -3,6 +3,7 @@ from io import BytesIO
 from html import escape
 from mente_futuro.presentation import LOGO
 from servicios.propuesta_documento import modelo
+from servicios.pago_cotizacion import filas_pago
 
 AZUL='#203864'
 CALIDO='#DFA77B'
@@ -24,7 +25,7 @@ def generar_pdf(q):
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.enums import TA_JUSTIFY,TA_CENTER,TA_RIGHT
-    from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer,Image,Table,TableStyle,PageBreak,HRFlowable
+    from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer,Image,Table,TableStyle,PageBreak,HRFlowable,KeepTogether
     m=modelo(q);salida=BytesIO();ancho,alto=A4;margen=53;util=ancho-2*margen-12
     normal=ParagraphStyle('Cuerpo',fontName='Helvetica',fontSize=9.5,leading=13,spaceAfter=6,alignment=TA_JUSTIFY)
     estilos={
@@ -49,7 +50,16 @@ def generar_pdf(q):
     primera=any(k in ('objetivos','metodologia') for k,_,_ in m['secciones']);separado=False
     for clave,numero,titulo in m['secciones']:
         if clave=='detalle' and primera and not separado:historia.append(PageBreak());separado=True
-        historia.extend([p(f'{numero}. {titulo}','heading'),HRFlowable(width='100%',thickness=.7,color=colors.HexColor(CALIDO),spaceAfter=9)])
+        encabezado=[p(f'{numero}. {titulo}','heading'),HRFlowable(width='100%',thickness=.7,color=colors.HexColor(CALIDO),spaceAfter=9)]
+        if clave=='pago':
+            tabla=Table([[p(k,'sub'),p(v)] for k,v in filas_pago(m['pago'])],colWidths=[util*.4,util*.6],hAlign='LEFT',splitByRow=0,splitInRow=0)
+            tabla.setStyle(TableStyle([('GRID',(0,0),(-1,-1),.5,colors.HexColor(BORDE)),('BACKGROUND',(0,0),(0,-1),colors.HexColor('#F2F2F2')),
+                ('VALIGN',(0,0),(-1,-1),'MIDDLE'),('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4)]))
+            historia.append(KeepTogether([*encabezado,tabla,Spacer(1,8),
+                p('Enviar el comprobante de transferencia a: '+m['pago']['correo_comprobantes']),
+                p('Indicar el N° de cotización en el asunto')]))
+            continue
+        historia.extend(encabezado)
         if clave=='objetivos':
             historia.append(p('Objetivo general','sub'))
             if m['objetivo_general']:historia.append(p(m['objetivo_general']))
@@ -118,11 +128,13 @@ def generar_word(q):
         if etiqueta:p.add_run(etiqueta.rstrip(':')+': ').bold=True
         p.add_run(texto).bold=bold
         return p
-    def tabla(filas,anchos,cabecera=False):
+    def tabla(filas,anchos,cabecera=False,indivisible=False):
         t=doc.add_table(rows=0,cols=len(anchos));t.alignment=WD_TABLE_ALIGNMENT.CENTER;t.autofit=False
         for col,w in zip(t.columns,anchos):col.width=Mm(w)
         for i,fila in enumerate(filas):
             row=t.add_row()
+            if indivisible:
+                no_partir=OxmlElement('w:cantSplit');row._tr.get_or_add_trPr().append(no_partir)
             for j,valor in enumerate(fila):
                 c=row.cells[j];c.width=Mm(anchos[j]);c.vertical_alignment=WD_CELL_VERTICAL_ALIGNMENT.CENTER;c.text=str(valor)
                 tcPr=c._tc.get_or_add_tcPr();b=OxmlElement('w:tcBorders')
@@ -134,6 +146,7 @@ def generar_word(q):
                 if i==0 and cabecera or j==0 and not cabecera or i==len(filas)-1 and cabecera:
                     sh=OxmlElement('w:shd');sh.set(qn('w:fill'),AZUL[1:] if i==0 and cabecera else 'F2F2F2');tcPr.append(sh)
                 for p in c.paragraphs:
+                    if indivisible:p.paragraph_format.keep_with_next=True;p.paragraph_format.keep_together=True
                     p.paragraph_format.space_before=Pt(4);p.paragraph_format.space_after=Pt(4)
                     if j==len(fila)-1 and cabecera:p.alignment=WD_ALIGN_PARAGRAPH.RIGHT
                     for run in p.runs:
@@ -142,7 +155,8 @@ def generar_word(q):
                 repeat=OxmlElement('w:tblHeader');row._tr.get_or_add_trPr().append(repeat)
         if cabecera:
             t.rows[-1].cells[0].merge(t.rows[-1].cells[1]).text=filas[-1][1]
-        doc.add_paragraph().paragraph_format.space_after=Pt(0)
+        espacio=doc.add_paragraph();espacio.paragraph_format.space_after=Pt(0)
+        if indivisible:espacio.paragraph_format.keep_with_next=True
     primera=any(k in ('objetivos','metodologia') for k,_,_ in m['secciones'])
     for clave,n,titulo in m['secciones']:
         if clave=='detalle' and primera:doc.add_page_break()
@@ -158,6 +172,11 @@ def generar_word(q):
             if m['descripcion']:parrafo(m['descripcion'])
             tabla([['Modalidad',m['modalidad']],['Participantes',m['participantes']],['Dirigido a',m['dirigido_a']]],[69,103])
         elif clave=='valor':tabla(filas_valores(m),[20,100,52],True)
+        elif clave=='pago':
+            tabla(filas_pago(m['pago']),[69,103],indivisible=True)
+            aviso=parrafo('Enviar el comprobante de transferencia a: '+m['pago']['correo_comprobantes'])
+            aviso.paragraph_format.keep_with_next=True;aviso.paragraph_format.keep_together=True
+            parrafo('Indicar el N° de cotización en el asunto').paragraph_format.keep_together=True
         else:
             for x in m['condiciones']:parrafo(x,bullet=True)
     footer=s.footer.paragraphs[0];footer.add_run(m['folio']+f" · Versión {m['version']} · Página ").font.size=Pt(8)
