@@ -107,6 +107,22 @@ def barras_horizontales(labels,values,color=MORADO,reduced_motion=False):
     return aplicar_tema(eje_conteo(fig),reduced_motion)
 
 
+def barras_ventas(totales, reduced_motion=False):
+    """Montos CLP: no reutiliza el eje ni el hover de conteos de solicitudes."""
+    if not totales or sum(totales.values()) <= 0:
+        return None
+    orden = sorted(totales.items(), key=lambda item: item[1], reverse=True)
+    labels, valores = zip(*orden)
+    total = sum(valores)
+    fig = go.Figure(go.Bar(y=[escape(str(x)) for x in labels], x=valores, orientation='h',
+        marker_color=AZUL, text=[money(v) for v in valores], textposition='outside', cliponaxis=False,
+        customdata=[[money(v), f'{v/total:.1%}'.replace('.', ',')] for v in valores],
+        hovertemplate='%{y}<br>Vendido: %{customdata[0]} · %{customdata[1]} del total<extra></extra>'))
+    fig.update_yaxes(autorange='reversed', showgrid=False)
+    fig.update_xaxes(tickprefix='$', tickformat=',.0f', range=[0, max(valores)*1.4])
+    return aplicar_tema(fig, reduced_motion)
+
+
 def distribucion(casos,campo):
     counts={}
     for caso in casos:

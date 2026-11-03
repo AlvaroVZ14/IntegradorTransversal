@@ -87,3 +87,22 @@ def variacion(actual, anterior):
     if actual is None or anterior is None or anterior == 0:
         return None
     return (actual-anterior) / abs(anterior) * 100
+
+
+def ventas_por_dimension(casos, ventas, dimension):
+    """Atribuye cada venta una sola vez a su caso, conservando el total vendido.
+
+    Recibe ventas ya filtradas por fecha. La temática es la principal del caso;
+    repartir por todas sus temáticas duplicaría montos. Incluye casos antiguos
+    con venta en el rango y conserva ventas sin referencia bajo Sin información.
+    """
+    if dimension not in ('tematica', 'servicio'):
+        raise ValueError('Selecciona temática o tipo de servicio.')
+    indice = {c['id']: c for c in casos}
+    totales = {}
+    for venta in ventas:
+        if venta.get('anulada'):
+            continue
+        etiqueta = indice.get(venta['caso_id'], {}).get(dimension) or 'Sin información'
+        totales[etiqueta] = totales.get(etiqueta, 0) + float(venta['monto_clp'])
+    return dict(sorted(totales.items(), key=lambda item: (-item[1], item[0])))

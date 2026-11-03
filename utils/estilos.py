@@ -549,6 +549,31 @@ ESTILOS_BASE += """
  [data-testid="stDialog"] [data-testid="stColumn"]{width:100%!important;flex:1 1 100%!important;min-width:0!important;}
 }
 """
+# Dashboard: selectores internos stColumn/stMetric acotados a esta página.
+# La fila nativa de cuatro columnas se mantiene en dos columnas en celular.
+ESTILOS_BASE += """
+.st-key-mfy_dashboard .st-key-mfy_page_header{min-height:132px;padding:18px 24px;margin-bottom:8px;}
+.st-key-mfy_dashboard .mfy-hero{min-height:132px;padding:18px 24px;}
+.mfy-preview-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:12px 0;}
+.mfy-preview-kpis [class*="st-key-mfy_kpi_"]{min-height:140px;padding:16px;}
+.st-key-mfy_dashboard .mfy-hero-copy h1{font-size:clamp(24px,2.5vw,32px)!important;margin:4px 0;}
+.st-key-mfy_dashboard .mfy-hero-copy p{margin:4px 0;}
+.st-key-mfy_dashboard .mfy-hero-orbit{width:72px;}
+.st-key-mfy_dashboard .st-key-dashboard_filters{padding:12px 16px;}
+.st-key-mfy_dashboard_kpis [class*="st-key-mfy_kpi_"]{min-height:150px;padding:16px;}
+.st-key-mfy_dashboard_kpis .mfy-kpi-icon{width:30px;height:30px;font-size:16px;}
+.st-key-mfy_dashboard_kpis [data-testid="stMetricValue"]{font-size:clamp(20px,2vw,28px);}
+@media(max-width:767px){
+ .mfy-preview-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}
+ .st-key-mfy_dashboard .st-key-mfy_page_header{min-height:112px;padding:14px 16px;}
+ .st-key-mfy_dashboard .mfy-hero-orbit{width:44px;}
+ .st-key-mfy_dashboard_kpis [data-testid="stHorizontalBlock"]{flex-wrap:wrap;gap:8px;}
+ .st-key-mfy_dashboard_kpis [data-testid="stHorizontalBlock"]>[data-testid="stColumn"]{width:calc(50% - 4px)!important;flex:0 0 calc(50% - 4px)!important;min-width:0!important;}
+ .st-key-mfy_dashboard_kpis [class*="st-key-mfy_kpi_"]{min-height:138px;padding:12px;}
+ .st-key-mfy_dashboard_kpis [data-testid="stMetricValue"]{font-size:clamp(17px,4.5vw,23px);}
+ .st-key-mfy_dashboard_kpis [data-testid="stMetricLabel"] p{font-size:13px;white-space:normal;}
+}
+"""
 # Posiciones estáticas; las únicas propiedades animadas del confeti son transform y opacity.
 ESTILOS_BASE += "".join(
     f'.mfy-confetti-piece:nth-child({i+1}){{left:{5+i*5}%;animation-delay:{(i%4)*25}ms;}}'

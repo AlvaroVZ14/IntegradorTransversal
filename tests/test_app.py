@@ -391,7 +391,7 @@ class AppTests(unittest.TestCase):
         ir_a(app,'Dashboard')
         self.assert_clean(app)
         self.assertEqual(by_label(app.metric,'Venta promedio').value,'—')
-        self.assertEqual(by_label(app.metric,'Solicitudes que se vendieron').value,'—')
+        self.assertEqual(by_label(app.metric,'Conversión').value,'—')
         self.assertTrue(any('Aún no hay ventas' in x.value for x in app.markdown))
         self.assertNotIn('Diaria',by_label(app.selectbox,'Agrupar por').options)
 
@@ -450,9 +450,9 @@ class AppTests(unittest.TestCase):
         app.run()
         ir_a(app,'Dashboard')
         self.assert_clean(app)
-        self.assertTrue(any(e.label=='Ver más gráficos' for e in app.expander))
+        self.assertFalse(any(e.label=='Ver más gráficos' for e in app.expander))
         content=' '.join(x.value for x in app.markdown)
-        self.assertIn('El reparto de reserva y remuneración aún no está registrado',content)
+        self.assertIn('Aún no hay ventas',content)
         self.assertEqual(len(app.metric),4)
 
     def test_tariff_write(self):

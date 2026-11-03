@@ -17,7 +17,7 @@ class DashboardSimplificadoTests(unittest.TestCase):
             dash_hasta=date(2026,10,21),dash_servicio='Todos',dash_tematica='Todas')
         esperados={'Total vendido':'$7.460.000','Cantidad de ventas':'6',
             'Solicitudes recibidas en el período':'12','Venta promedio':'$1.243.333',
-            'Solicitudes que se vendieron':'50,0%','Ventas con pago pendiente':'$2.160.000'}
+            'Conversión':'50,0%','Pago pendiente':'$2.160.000'}
         for intento in range(2):
             if intento:
                 app=AppTest.from_file(str(base.ROOT/'app.py'),default_timeout=20)
@@ -25,11 +25,13 @@ class DashboardSimplificadoTests(unittest.TestCase):
             for k,v in filtros.items():app.session_state[k]=v
             app.run();base.ir_a(app,'Dashboard');self.assert_clean(app)
             self.assertEqual([m.label for m in app.metric],['Total vendido','Venta promedio',
-                'Solicitudes que se vendieron','Ventas con pago pendiente'])
+                'Conversión','Pago pendiente'])
             for label,valor in esperados.items():
-                self.assertEqual(base.fila_indicador(app,label)['Valor'],valor)
+                if label in ('Cantidad de ventas','Solicitudes recibidas en el período'):
+                    self.assertEqual(base.fila_indicador(app,label)['Valor'],valor)
+                else:self.assertEqual(base.by_label(app.metric,label).value,valor)
             self.assertEqual(base.fila_indicador(app,'Cantidad de ventas')['Variación'],'Sin datos del período anterior')
-            self.assertTrue(any('6 ventas registradas' in c.value for c in app.caption))
-            self.assertIn('no casos en estado Cerrada',base.by_label(app.metric,'Total vendido').help)
-            self.assertEqual(len(app.get('plotly_chart')),9)
+            self.assertFalse(any('6 ventas registradas' in c.value for c in app.caption))
+            self.assertIn('ventas no anuladas',base.by_label(app.metric,'Total vendido').help)
+            self.assertEqual(len(app.get('plotly_chart')),5)
             self.assertTrue(any(b.label=='Exportar resumen por período' for b in app.get('download_button')))

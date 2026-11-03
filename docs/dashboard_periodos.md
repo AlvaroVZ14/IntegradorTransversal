@@ -1,8 +1,10 @@
 # Dashboard: filtros simplificados y períodos — Prompt 23
 
+La presentación se simplificó posteriormente en el [Prompt 24](dashboard_simple24.md). Esta guía conserva el contrato de filtros, calendario y comparación; el conjunto actual de gráficos y el modo de datos ficticios se describen en esa entrega.
+
 ## Cambios y uso
 
-El Dashboard tiene únicamente **Agrupar por**, **Desde**, **Hasta** y **Limpiar**, más las flechas **Anterior / Siguiente**. Se retiran Rango rápido, Servicio, Temática y los chips redundantes. Se conservan todos los gráficos, incluidas las distribuciones por temática y servicio, los cuatro KPI, su detalle, la descarga del resumen y el panel independiente de reportes.
+El Dashboard tiene únicamente **Agrupar por**, **Desde**, **Hasta** y **Limpiar**, más las flechas **Anterior / Siguiente**. Se retiran Rango rápido, Servicio, Temática y los chips redundantes. Los filtros se aplican a los gráficos y los cuatro KPI; se conserva la descarga del resumen y el panel independiente de reportes.
 
 Inicialmente se abre el mes vigente completo, según la fecha de Chile. Cambiar Agrupar por carga automáticamente el período calendario vigente de ese tipo. Con fecha de referencia 03/11/2026:
 

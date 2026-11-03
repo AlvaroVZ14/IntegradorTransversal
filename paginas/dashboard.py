@@ -4,22 +4,18 @@ import pandas as pd
 import streamlit as st
 
 from mente_futuro.domain import code, csv_bytes, money, today
-from servicios.dashboard import datos_dashboard
+from servicios.dashboard import datos_dashboard, ventas_por_dimension
 from servicios.periodos import (AGRUPACIONES, periodo_vigente, validar_rango,
                                 navegar_periodo, puede_avanzar, etiqueta_rango)
 from utils.estados import etiqueta_estado
 from utils.permisos import require_admin
 from utils.responsive import es_pantalla_movil
-from utils.componentes import (dato_destacado, estado_vacio, encabezado_pagina,
+from utils.componentes import (estado_vacio, encabezado_pagina,
                                tarjeta_grafico, tarjeta_kpi, badge_estado, leyenda_estados, tabla_registros)
-from utils.graficos_dashboard import (barras_horizontales, distribucion, embudo_estados, frase_destacada,
-                                     modalidades, origenes, reparto, solicitudes_vs_ventas,
-                                     tematicas_dona, ventas_por_periodo)
-from utils.estilos import AZUL
+from utils.graficos_dashboard import (barras_horizontales, barras_ventas, embudo_estados, origenes,
+                                     solicitudes_vs_ventas, ventas_por_periodo)
 from mente_futuro.ui import show_error, logout
 from servicios.en_vivo import carga_inicial, estado
-from utils.en_vivo import indicador
-from utils.metricas_visuales import contexto_cohortes
 
 
 def _aplicar(personalizado=False):
@@ -75,7 +71,7 @@ def filtros():
     state.setdefault('dash_desde', desde_aplicado)
     state.setdefault('dash_hasta', hasta_aplicado)
     mobile = es_pantalla_movil()
-    container = st.expander('Filtros', expanded=True, key='dashboard_filters') if mobile else st.container(key='dashboard_filters')
+    container = st.expander('Filtros', expanded=False, key='dashboard_filters') if mobile else st.container(key='dashboard_filters')
     with container:
         columns = [st.container() for _ in range(4)] if mobile else st.columns([1.4, 1.2, 1.2, 1], gap='small')
         columns[0].selectbox('Agrupar por', AGRUPACIONES, key='dash_agrupacion', on_change=_limpiar)
@@ -117,147 +113,106 @@ def _mostrar(fig, key, mensaje=None):
     if fig is None:
         estado_vacio(mensaje or "Aún no hay solicitudes en este período. Prueba con un rango más amplio.")
     else:
-        fig.update_layout(uirevision=key)
+        fig.update_layout(uirevision=key, height=320)
         st.plotly_chart(fig, width="stretch", theme=None, key=key,
                         config={"displayModeBar":False,"responsive":True,"scrollZoom":False})
 
 
-def _contenido_dashboard(repo, filtros_activos):
+def _contenido_dashboard(repo, filtros_activos, demo=False):
     require_admin(repo)
     start, end, grouping, _ = filtros_activos
     repetida = estado('dashboard').get('intentado', False)
-    with carga_inicial('dashboard', 'Preparando tu tablero…'):
-        from servicios.en_vivo import cargar
-        lectura = cargar(repo, 'dashboard')
-    if 'datos' not in lectura:
-        indicador('dashboard', publicar=True)
-        st.info('Aún no pudimos conectar. La información aparecerá cuando vuelva la conexión.')
-        return
-    cases, sales = lectura['datos']['casos'], lectura['datos']['ventas']
+    if demo:
+        from servicios.dashboard_demo import datos_demo
+        cases, sales = datos_demo(start, end)
+        st.info('Datos de prueba ficticios. No son ventas reales y no se guardan en Supabase.')
+    else:
+        with carga_inicial('dashboard', 'Preparando tu tablero…'):
+            from servicios.en_vivo import cargar
+            lectura = cargar(repo, 'dashboard')
+        if 'datos' not in lectura:
+            st.info('Aún no pudimos conectar. La información aparecerá cuando vuelva la conexión.')
+            return
+        cases, sales = lectura['datos']['casos'], lectura['datos']['ventas']
     data = datos_dashboard(cases, sales, start, end, grouping)
-    indicador('dashboard', publicar=True)
-    reduced = repetida or st.session_state.get("dashboard_reduced_motion",False)
-    previous_start, previous_end = data["previous_range"]
-    st.caption(f"Comparado con {previous_start:%d/%m/%Y} – {previous_end:%d/%m/%Y}", help=
-        "Días inmediatamente anteriores, con la misma duración inclusiva que el rango elegido. Sin ventas previas no se inventa un porcentaje.")
-    conversion = data["conversion"]
-    conversion_text = None
-    if conversion is not None:
-        number = f"{conversion/10:.1f}".rstrip("0").rstrip(".").replace(".",",")
-        conversion_text = f"De cada 10 solicitudes, {number} terminaron en venta"
+    reduced = repetida or st.session_state.get('dashboard_reduced_motion', False)
+    previous_start, previous_end = data['previous_range']
+    st.caption(f'Comparado con {previous_start:%d/%m/%Y} – {previous_end:%d/%m/%Y}',
+               help='Días inmediatamente anteriores con igual duración. Sin ventas previas no se inventa un porcentaje.')
+    conversion = data['conversion']
     cards = [
-        ("Total vendido",money(data["total"]),"total","↗","azul",
-         "Suma de las ventas no anuladas por fecha de venta. La cantidad cuenta registros de venta, no casos en estado Cerrada.",
-         f"{data['sales_count']} {'venta registrada' if data['sales_count']==1 else 'ventas registradas'}"+
-         (f" · {_delta(data,'sales_count')} en cantidad" if data["variations"]["sales_count"] is not None else '')),
-        ("Venta promedio",money(data["average"]) if data["average"] is not None else "—","average","◈","amarillo","Total vendido dividido por los casos vendidos en el período",None),
-        ("Solicitudes que se vendieron",f"{conversion:.1f}%".replace(".",",") if conversion is not None else "—","conversion","◎","morado","Solicitudes creadas en el rango que tienen venta no anulada hasta su fecha final.",conversion_text),
-        ("Ventas con pago pendiente",money(data["pending_payment"]),"pending_payment","◷","amarillo","Valor completo de las ventas no pagadas totalmente, incluidas las que tienen abonos; no es el saldo exacto por cobrar.",None),
-    ]
-    serie=data['evolution'].tail(6)
-    tendencias={'total':serie.total.tolist(),'sales_count':serie.cantidad.tolist(),
-                'requests_count':serie.solicitudes.tolist(),
-                'average':[t/n if n else None for t,n in zip(serie.total,serie.cantidad)]}
-    tendencias.update(contexto_cohortes({**data, 'series':data['evolution']},sales,end))
-    contexto={'total':'Total vendido por período','sales_count':'Ventas registradas por período',
-              'requests_count':'Solicitudes recibidas por período','average':'Promedio de ventas por período',
-              'conversion':'Solicitudes de cada período vendidas al fin del rango',
-              'pending_payment':'Ventas actuales por cobrar, por fecha de venta'}
-    for offset in [0,2]:
-        for column,card in zip(st.columns(2),cards[offset:offset+2]):
-            label,value,key,icon,tone,help_text,caption = card
+        ('Total vendido', money(data['total']), 'total', '↗', 'azul',
+         'Suma de las ventas no anuladas por fecha de venta. La variación compara con el rango anterior de igual duración.'),
+        ('Venta promedio', money(data['average']) if data['average'] is not None else '—', 'average', '◈', 'azul',
+         'Total vendido dividido por los casos vendidos en el período.'),
+        ('Conversión', f'{conversion:.1f}%'.replace('.', ',') if conversion is not None else '—', 'conversion', '◎', 'morado',
+         'Porcentaje de solicitudes creadas en el rango que tuvieron una venta no anulada hasta el último día del rango.'),
+        ('Pago pendiente', money(data['pending_payment']), 'pending_payment', '◷', 'amarillo',
+         'Monto completo de las ventas del período cuyo pago no está completado. Incluye anticipos; no representa el saldo restante.')]
+    with st.container(key='mfy_dashboard_kpis'):
+        for column, card in zip(st.columns(4, gap='small'), cards):
+            label, value, key, icon, tone, ayuda = card
+            delta = _delta(data, key) if key == 'total' else None
+            caption = delta if delta == 'Sin datos del período anterior' else None
             with column:
-                delta = _delta(data,key)
-                if delta == 'Sin datos del período anterior':
-                    caption = (caption + ' · ' if caption else '') + delta
-                    delta = None
-                tarjeta_kpi(label,value,key=key,icon=icon,tone=tone,delta=delta,help=help_text,
-                            caption=caption,inverse=key=="pending_payment",serie=tendencias.get(key),
-                            etiquetas=serie.periodo.tolist(),contexto_serie=contexto.get(key),
-                            formato_serie='moneda' if key in ('total','average','pending_payment') else 'porcentaje' if key=='conversion' else 'entero')
-    with st.expander('Ver detalle de indicadores'):
-        # Reubicar valores, sin recalcularlos ni perder sus comparaciones.
-        indicadores=[('Total vendido','total',True),('Cantidad de ventas','sales_count',False),
-                     ('Solicitudes recibidas en el período','requests_count',False),
-                     ('Venta promedio','average',True),('Solicitudes que se vendieron','conversion',False),
-                     ('Ventas con pago pendiente','pending_payment',True)]
-        def valor(key,datos,moneda):
-            n=datos[key]
-            if n is None:return '—'
-            if key=='conversion':return f'{n:.1f}%'.replace('.',',')
-            return money(n) if moneda else str(n)
-        tabla_registros(pd.DataFrame([{'Indicador':label,'Valor':valor(key,data,moneda),
-            'Período anterior':valor(key,data['previous'],moneda),'Variación':_delta(data,key) or '—'}
-            for label,key,moneda in indicadores]),'Detalle de indicadores')
-    a,b = st.columns(2)
+                tarjeta_kpi(label, value, key=key, icon=icon, tone=tone, help=ayuda,
+                            delta=None if caption else delta, caption=caption)
     unidad = {'Semanal':'Semanas', 'Mensual':'Meses', 'Trimestral':'Trimestres',
               'Semestral':'Semestres', 'Anual':'Años'}[data['evolution_grouping']]
+    ventas = data['sales'].to_dict('records')
+    ids = set(data['requests'].id)
+    solicitudes = [c for c in cases if c['id'] in ids]
+    a, b = st.columns(2)
     with a:
-        with tarjeta_grafico("Ventas por período",f"{unidad} del rango elegido · total, promedio y mejor período · CLP","ventas"):
-            _mostrar(ventas_por_periodo(data["evolution"],reduced),"plot_ventas",
-                     "Aún no hay ventas en este período. Prueba con un rango más amplio.")
+        with tarjeta_grafico('Ventas por período', f'{unidad} del rango elegido; línea amarilla = promedio.', 'ventas'):
+            _mostrar(ventas_por_periodo(data['evolution'], reduced), 'plot_ventas',
+                     'Aún no hay ventas en este período. Prueba con un rango más amplio.')
     with b:
-        with tarjeta_grafico("Solicitudes vs ventas",f"{unidad} del rango elegido · cantidad de solicitudes y ventas cerradas","comparacion"):
-            _mostrar(solicitudes_vs_ventas(data["evolution"],reduced),"plot_comparacion")
-    a,b = st.columns(2)
+        with tarjeta_grafico('Ventas por temática', 'Monto vendido según la temática principal del caso.', 'tematicas'):
+            _mostrar(barras_ventas(ventas_por_dimension(cases, ventas, 'tematica'), reduced), 'plot_temas',
+                     'Las ventas por temática aparecerán cuando registres una venta en este período.')
+    a, b = st.columns(2)
     with a:
-        with tarjeta_grafico("Temáticas más solicitadas","Las 5 principales y otras · porcentaje de solicitudes","tematicas"):
-            _mostrar(tematicas_dona(data["topics"],reduced),"plot_temas")
+        with tarjeta_grafico('Ventas por tipo de servicio', 'Monto vendido por servicio, dentro de las fechas elegidas.', 'servicio'):
+            _mostrar(barras_ventas(ventas_por_dimension(cases, ventas, 'servicio'), reduced), 'plot_servicio',
+                     'Las ventas por servicio aparecerán cuando registres una venta en este período.')
     with b:
-        with tarjeta_grafico("Embudo por estado del caso","En qué etapa están tus casos","embudo",
-                            help="Distribución actual de casos; no representa transiciones históricas."):
+        with tarjeta_grafico('Embudo de casos por estado', 'Distribución actual de las solicitudes recibidas en el período.', 'embudo',
+                            help='Muestra cantidades actuales, no transiciones históricas de un mismo caso.'):
             leyenda_estados()
-            _mostrar(embudo_estados(data["states"],reduced),"plot_embudo","Aún no hay casos en estas etapas del período.")
-            outside = data["states"][~data["states"].estado.isin(["Solicitud","Cotizada","Aceptada","En seguimiento","Cerrada"])]
-            if not outside.empty:
-                st.caption("Otros casos del período (fuera del embudo):")
-                st.markdown('<div class="mfy-state-key">'+''.join(badge_estado(r.estado,r.Casos) for r in outside.itertuples())+'</div>',unsafe_allow_html=True)
-                if "En revisión" in outside.estado.values:
-                    st.caption("La solicitud en revisión conserva su subetapa original.")
-    ids = set(data["requests"].id)
-    filtered_cases = [c for c in cases if c["id"] in ids]
-    sale_ids = set(data["sales"].caso_id)
-    filtered_sales = [s for s in sales if s["caso_id"] in sale_ids and not s["anulada"] and start <= pd.Timestamp(s["fecha_venta"]).date() <= end]
-    a,b = st.columns(2)
+            _mostrar(embudo_estados(data['states'], reduced), 'plot_embudo', 'Aún no hay casos en estas etapas del período.')
+            fuera = data['states'][~data['states'].estado.isin(['Solicitud','Cotizada','Aceptada','En seguimiento','Cerrada'])]
+            if not fuera.empty:
+                st.markdown('<div class="mfy-state-key">'+''.join(badge_estado(r.estado,r.Casos) for r in fuera.itertuples())+'</div>', unsafe_allow_html=True)
+    a, _ = st.columns(2)
     with a:
-        with tarjeta_grafico("Origen de las solicitudes","Incluye referidos por colega cuando están registrados","origen"):
-            _mostrar(origenes(filtered_cases,reduced),"plot_origen")
-    with b:
-        dato_destacado(frase_destacada(data,grouping))
-    with tarjeta_grafico('Solicitudes por canal','Canal del enlace usado · mismo período y filtros del tablero','canales'):
-        from utils.canales import conteo_canales
-        canales=conteo_canales(filtered_cases)
-        _mostrar(barras_horizontales(list(canales),list(canales.values()),AZUL,reduced),'plot_canales')
-    with st.expander("Ver más gráficos"):
-        a,b = st.columns(2)
-        with a:
-            with tarjeta_grafico("Modalidad","Participación por modalidad registrada","modalidad"):
-                _mostrar(modalidades(filtered_cases,reduced),"plot_modalidad")
-        with b:
-            with tarjeta_grafico("Reserva vs remuneración","Reparto efectivamente registrado · CLP","reparto"):
-                _mostrar(reparto(filtered_sales,reduced),"plot_reparto",
-                         "El reparto de reserva y remuneración aún no está registrado.")
-        counts = distribucion(filtered_cases,"servicio")
-        with tarjeta_grafico("Tipo de servicio","Solicitudes por servicio · cantidad y porcentaje","servicio"):
-            _mostrar(barras_horizontales(list(counts),list(counts.values()),AZUL,reduced),"plot_servicio")
-    requests = data["requests"]
-    if not requests.empty:
-        with st.expander("Ver solicitudes del período"):
-            rows = [{"Caso":code(c),"Cliente":c["cliente"],"Servicio":c["servicio"],"Temática":c["tematica"],
-                     "Estado":etiqueta_estado(c["estado"]),"Fecha":pd.to_datetime(c["created_at"],utc=True).tz_convert("America/Santiago").date()}
-                    for c in requests.to_dict("records")]
-            tabla_registros(pd.DataFrame(rows),"Solicitudes del período")
-    export = data["series"].rename(columns={"inicio":"Inicio","fin":"Fin","periodo":"Período","total":"Ventas CLP","cantidad":"Ventas cerradas","solicitudes":"Solicitudes"}).copy()
-    for column in ["Inicio","Fin"]:
-        export[column] = pd.to_datetime(export[column]).dt.strftime("%d/%m/%Y")
-    st.download_button("Exportar resumen por período",csv_bytes(export),"resumen-por-periodo.csv","text/csv")
-    st.caption("Montos en pesos chilenos",help="Ventas por fecha de aceptación. Solicitudes en hora de Chile. Ventas anuladas excluidas.")
+        with tarjeta_grafico('Origen de las solicitudes', 'Cómo llegaron las solicitudes recibidas en el rango elegido.', 'origen'):
+            _mostrar(origenes(solicitudes, reduced), 'plot_origen')
+    with st.expander('Ver detalle de indicadores'):
+        # Solo conteos adicionales: no repite los cuatro KPI de arriba.
+        tabla_registros(pd.DataFrame([
+            {'Indicador':nombre, 'Valor':str(data[key]), 'Período anterior':str(data['previous'][key]),
+             'Variación':_delta(data,key) or '—'} for nombre,key in
+            [('Cantidad de ventas','sales_count'),('Solicitudes recibidas en el período','requests_count')]]), 'Detalle de indicadores')
+    if not data['requests'].empty:
+        with st.expander('Ver solicitudes del período'):
+            rows = [{'Caso':code(c), 'Cliente':c['cliente'], 'Servicio':c['servicio'], 'Temática':c['tematica'],
+                     'Estado':etiqueta_estado(c['estado']),
+                     'Fecha':pd.to_datetime(c['created_at'],utc=True).tz_convert('America/Santiago').date()}
+                    for c in data['requests'].to_dict('records')]
+            tabla_registros(pd.DataFrame(rows), 'Solicitudes del período')
+    export = data['series'].rename(columns={'inicio':'Inicio','fin':'Fin','periodo':'Período','total':'Ventas CLP',
+        'cantidad':'Cantidad de ventas','solicitudes':'Solicitudes'}).copy()
+    for column in ('Inicio','Fin'):
+        export[column] = pd.to_datetime(export[column]).dt.strftime('%d/%m/%Y')
+    st.download_button('Exportar resumen por período', csv_bytes(export),
+                       'DEMO-resumen-por-periodo.csv' if demo else 'resumen-por-periodo.csv', 'text/csv')
 
 
 @st.fragment(run_every="60s")
-def _actualizar_dashboard(repo, filtros_activos):
+def _actualizar_dashboard(repo, filtros_activos, demo=False):
     try:
-        _contenido_dashboard(repo, filtros_activos)
+        _contenido_dashboard(repo, filtros_activos, demo)
     except Exception as error:
         show_error(error,"No pudimos cargar la información. Reintenta en unos momentos.")
         if st.button("Volver al ingreso",key="dashboard_error_login"):
@@ -266,15 +221,20 @@ def _actualizar_dashboard(repo, filtros_activos):
 
 def dashboard_page(repo):
     require_admin(repo)
-    hero = st.container()
-    activos = filtros()
-    start, end, grouping, personalizado = activos
-    with hero:
-        encabezado_pagina("Una mirada a tu negocio", etiqueta_rango(start, end, grouping, personalizado),
-                          "DASHBOARD", "✦", mostrar_metricas=False)
-    _actualizar_dashboard(repo, activos)
-    from paginas.reportes import panel_reportes
-    panel_reportes(repo)
+    with st.container(key='mfy_dashboard'):
+        hero = st.container()
+        activos = filtros()
+        start, end, grouping, personalizado = activos
+        with hero:
+            encabezado_pagina('Una mirada a tu negocio', etiqueta_rango(start, end, grouping, personalizado),
+                              'DASHBOARD', '✦', mostrar_metricas=False)
+        demo = st.toggle('Ver datos de prueba', key='dash_demo', value=False,
+                         help='Muestra un ejemplo ficticio solo en este Dashboard. No agrega ni modifica datos reales.')
+        _actualizar_dashboard(repo, activos, demo)
+        if not demo:
+            from paginas.reportes import panel_reportes
+            panel_reportes(repo)
+
 
 
 if __name__ == "__main__":

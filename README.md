@@ -178,3 +178,5 @@ Dentro de **Mis documentos → Mi perfil**, una cuenta cliente confirmada puede 
 El cliente también puede **Enviar documentos** a sus propios casos desde Mis documentos; Administración los recibe en la pestaña Documentos, con filtro por origen. La [guía de documentos enviados por clientes](docs/documentos_cliente.md) contiene el SQL nuevo, límites, resultados de pruebas y verificación de las funciones anteriores. No requiere dependencias ni secretos nuevos.
 
 El Dashboard usa cuatro controles y períodos calendario con navegación Anterior/Siguiente, desglose automático y comparación de igual duración. La [guía de períodos del Dashboard](docs/dashboard_periodos.md) detalla su funcionamiento y las pruebas. No necesita migraciones SQL ni dependencias nuevas.
+
+La presentación simplificada muestra cuatro KPI y cinco gráficos. Para ver un ejemplo sin alterar ventas reales, activa **Ver datos de prueba** en el Dashboard de Administración. Detalles y archivos: [Dashboard simple](docs/dashboard_simple24.md).
