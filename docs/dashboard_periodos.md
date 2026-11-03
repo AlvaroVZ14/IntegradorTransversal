@@ -1,88 +1,83 @@
-# Dashboard: filtros, períodos e indicadores
+# Dashboard: filtros simplificados y períodos — Prompt 23
 
-Entrega del 22/10/2026. Archivos completos en `paginas/dashboard.py`, `servicios/dashboard.py`, `utils/responsive.py` y `utils/estados.py`. No hay dependencias nuevas ni cambios SQL por este dashboard.
+## Cambios y uso
 
-## Revisión del proyecto
+El Dashboard tiene únicamente **Agrupar por**, **Desde**, **Hasta** y **Limpiar**, más las flechas **Anterior / Siguiente**. Se retiran Rango rápido, Servicio, Temática y los chips redundantes. Se conservan todos los gráficos, incluidas las distribuciones por temática y servicio, los cuatro KPI, su detalle, la descarga del resumen y el panel independiente de reportes.
 
-Los archivos dashboard.py indicados en el pedido no existían. La interfaz estaba en `paginas/gestion.py` y los cálculos en `mente_futuro/domain.py`. El nuevo servicio reutiliza `dashboard_data`: conserva ventas por `mf_ventas.fecha_venta`, exclusión de ventas anuladas, solicitudes por `mf_casos.created_at` en America/Santiago, conversión de la cohorte y pagos pendientes. Se mantuvo el adaptador `paginas.gestion.dashboard_page` para no romper importaciones.
+Inicialmente se abre el mes vigente completo, según la fecha de Chile. Cambiar Agrupar por carga automáticamente el período calendario vigente de ese tipo. Con fecha de referencia 03/11/2026:
 
-Se revisaron las migraciones versionadas, que definen `fecha_venta` como DATE y `created_at` como TIMESTAMPTZ. No se contó con conexión administrativa para volver a inspeccionar el catálogo remoto. El dashboard continúa consultando las tablas mediante el repositorio autenticado y exige rol admin al inicio.
-
-## Filtros
-
-La fila superior contiene Agrupar por, Rango rápido, Desde, Hasta, Servicio, Temática y Limpiar. No está en la barra lateral. El valor inicial es Mensual y Últimos 6 meses. Limpiar restablece esos valores y ambos filtros a Todos/Todas.
-
-Los rangos rápidos incluyen el período actual parcial:
-
-- Últimas 8 semanas: lunes de hace siete semanas hasta hoy.
-- Últimos 6 meses: primer día del mes de hace cinco meses hasta hoy.
-- Este año: 1 de enero hasta hoy.
-- Año anterior: 1 de enero a 31 de diciembre del año anterior.
-- Personalizado: las fechas seleccionadas por la usuaria.
-
-Cambiar Desde o Hasta activa Personalizado. Si las fechas están invertidas, se ordenan. Para permitir una comparación visible se exigen al menos 4 semanas o 2 períodos de cualquier otra agrupación. Son períodos de calendario visibles, incluidos los parciales, no una duración mínima en días. Si faltan períodos, se amplía Desde hacia atrás, se mantiene Hasta, aparece un aviso y el rango pasa a Personalizado. Por ejemplo, Anual con Este año se amplía al año anterior para mostrar dos años.
-
-En pantallas menores de 768 px, los controles pasan a un expander Filtros y se muestran chips con agrupación, fechas, servicio y temática. Un componente nativo de Streamlit comunica únicamente si el ancho está por debajo del límite, sin librerías externas. Los valores de filtros se conservan al cambiar de ancho.
-
-## Qué aparece en cada agrupación
-
-| Agrupación | Cada barra representa | Ejemplo de etiqueta | Mínimo visible |
+| Agrupación | Desde / Hasta | Encabezado | Evolución |
 |---|---|---|---|
-| Semanal | Semana ISO de lunes a domingo | Sem 42 · 12–18 oct | 4 semanas |
-| Mensual | Mes calendario | oct 2026 | 2 meses |
-| Trimestral | Ene–mar, abr–jun, jul–sep u oct–dic | T4 · 2026 | 2 trimestres |
-| Semestral | Ene–jun o jul–dic | S2 · 2026 | 2 semestres |
-| Anual | Año calendario | 2026 | 2 años |
+| Mensual | 01/11/2026 – 30/11/2026 | Mes: noviembre 2026 · fechas exactas | Semanas ISO, lunes a domingo. |
+| Trimestral | 01/10/2026 – 31/12/2026 | Trimestre 4 de 2026 · fechas exactas | Octubre, noviembre y diciembre. |
+| Semestral | 01/07/2026 – 31/12/2026 | Semestre 2 de 2026 · fechas exactas | Julio a diciembre. |
+| Anual | 01/01/2026 – 31/12/2026 | Año 2026 · fechas exactas | Enero a diciembre. |
 
-No existe agrupación diaria. Las barras de períodos parcialmente incluidos suman solo movimientos dentro de Desde/Hasta. Las fechas completas de inicio y fin del período aparecen al pasar el mouse. Los ejes usan una clave interna de fecha para que etiquetas de semanas de distintos años no se mezclen.
+El período vigente incluye su fecha final calendario aunque aún no haya llegado. **Siguiente** no permite entrar a un período cuyo inicio sea futuro. Desde un trimestre anterior sí permite volver al vigente. Las fechas manuales siguen siendo editables y no se acortan automáticamente a hoy.
 
-`agrupar_por_periodo(df, agrupacion, desde=None, hasta=None)` devuelve inicio, fin, periodo, total y cantidad. Siempre devuelve todos los períodos, incluidos ceros. Para usar exactamente dos argumentos se pueden establecer `df.attrs['desde']` y `df.attrs['hasta']`; un DataFrame vacío necesita esos límites. Para solicitudes detecta `created_at` y aplica la hora chilena; para ventas usa `fecha_venta` y elimina anuladas.
+Editar cualquiera de las fechas cambia el encabezado a **Rango personalizado · dd/mm/aaaa – dd/mm/aaaa**. Si Desde supera Hasta, se muestra un aviso claro y se conservan los KPI, gráficos, encabezado y rango aplicado anteriores. Los controles permiten corregir la fecha sin intercambiar extremos ni ampliar el rango por su cuenta.
 
-## Indicadores y comparación
+**Limpiar** carga de nuevo el período vigente del tipo seleccionado; por ejemplo, si se eligió Semestral, no vuelve a Mensual. Navegar con las flechas vuelve a períodos completos de calendario, tomando como referencia el período que contiene Desde. El estado aplicado está separado de los widgets: se conserva entre reruns, refrescos automáticos y cambios de página dentro de la sesión, también cuando Streamlit retira widgets de una página no visible. No se añade persistencia en el navegador para los filtros al crear una sesión nueva.
 
-- Ventas del período: monto de ventas confirmadas, con impuestos definidos en cada cotización.
-- Ventas cerradas: cantidad de ventas, no cantidad de solicitudes creadas.
-- Nuevas solicitudes: casos creados en las fechas seleccionadas.
-- Venta promedio: total vendido dividido por casos vendidos. Sin ventas muestra —.
-- Solicitudes que se vendieron: porcentaje de solicitudes creadas en el rango que tienen venta no anulada hasta Hasta. Incluye la frase De cada 10 solicitudes, X terminaron en venta. Sin solicitudes muestra —.
-- Ventas con pago pendiente: valor completo de ventas que no están totalmente pagadas, incluidas las que tienen abono. No es el saldo exacto por cobrar.
+En celular, los cuatro controles se apilan dentro del bloque Filtros abierto inicialmente. Se reutilizan los estilos y botones táctiles existentes; no se cambian paleta ni permisos.
 
-Cada indicador tiene variación relativa `(actual-anterior)/anterior × 100`, con la flecha de Streamlit. Una base cero con actividad actual se marca Sin base anterior, nunca un 100% inventado; cero contra cero muestra 0%. Si el indicador no existe por falta de ventas/solicitudes, no hay variación.
+## Rango, agrupación y comparación
 
-El bloque anterior tiene la misma cantidad de períodos de calendario que toca el rango actual y termina antes del primer período actual. Se muestran sus fechas. Ejemplo: julio–diciembre en Mensual o Trimestral compara con enero–junio; en Anual, cualquier rango dentro de 2026 compara con 2025. El bloque anterior es completo y el actual puede ser parcial: la ayuda junto a las fechas lo aclara. Servicio y Temática se aplican igual a ambos bloques.
+Todos los KPI y distribuciones usan **exactamente Desde y Hasta, ambos inclusivos**. Se mantienen los cálculos comerciales existentes: ventas por fecha de venta, solicitudes por creación convertida a hora de Chile y exclusión de ventas anuladas. Retirar Servicio/Temática como filtros significa que el tablero abarca todos los servicios y temáticas del rango, sin restricciones antiguas escondidas en la sesión.
 
-La clasificación por servicio y temática utiliza el caso actual, como antes. Los estados muestran el estado actual, no una reconstrucción histórica.
+Las series por la agrupación elegida se conservan para el resumen/exportación. Si solo hay un grupo dentro del rango, las dos gráficas de evolución y los sparklines usan una serie adicional con unidad menor: semanas para Mensual; meses para Trimestral, Semestral y Anual. Si hay varios grupos, usan la agrupación elegida. En ambos casos se completan con ceros los grupos sin movimientos. La suma de la serie y la del desglose coinciden con el total del rango.
 
-## Estados y errores de gráficos
+Las semanas de borde pueden abarcar días fuera del mes, pero **solo se cuentan movimientos dentro de Desde/Hasta**. Los subtítulos indican que representan semanas o meses del rango elegido. Sin ventas se mantiene el estado vacío amable, sin ejes vacíos.
 
-Las etiquetas compartidas en todas las vistas son Cotizada, Aceptada, En seguimiento, Cerrada y Rechazada. Se conservan los valores antiguos en PostgreSQL y la lógica de cotizaciones/ventas: no se cambian restricciones ni registros para corregir un texto. El estado adicional En revisión que ya existía también se mantiene.
+La comparación de KPI usa el bloque inmediatamente anterior de **igual número de días inclusivos**, como pide el prompt; no se redondea a grupos completos. Esto es distinto de navegar por calendario:
 
-Los gráficos de estados y solicitudes usan ticks enteros. Si no hay ventas no se crea un gráfico con ejes vacíos: aparece Aún no hay ventas en este rango. El resumen CSV sigue incluyendo todos los períodos con cero. Con una sola venta se muestra una barra con el monto y el resto de los períodos en cero.
+- 01–30 noviembre 2026 compara con **02–31 octubre 2026**: 30 días contra 30.
+- 01/10–31/12/2026 compara con **01/07–30/09/2026**: 92 días contra 92.
+- Un rango de un día compara con el día inmediatamente anterior.
+- Al comparar un año bisiesto se conservan sus 366 días, aunque el bloque anterior no coincida exactamente con otro año calendario.
 
-## Cómo probar
+**Comparado con …** muestra siempre las fechas efectivamente usadas. Si no hay ventas en la base anterior, no aparece +0,0% verde ni flecha: aparece **Sin datos del período anterior** como texto neutro. Las solicitudes pueden seguir comparándose en el detalle si sí existían solicitudes previas, independientemente de que hubieran generado ventas. No se divide por cero ni se inventa una variación.
 
-Desde la raíz del proyecto:
+## Archivos completos
+
+| Archivo | Cambio |
+|---|---|
+| `servicios/periodos.py` | Calendario puro, conversión a fecha de Chile, inicio/fin, navegación, comparación, validación, etiquetas y elección del desglose. |
+| `servicios/dashboard.py` | Reutiliza el calendario, conserva la agregación comercial y añade el desglose; comparación de igual duración y sin porcentaje con base cero. Reexporta utilidades usadas por reportes. |
+| `paginas/dashboard.py` | Cuatro controles, flechas, encabezado exacto, último rango válido, conservación de estado, sin chips ni restricciones por servicio/temática y comparación neutra. |
+| `tests/test_periodos.py` | Pruebas nuevas de calendario, límites, sumas, anulaciones, ceros, zona horaria y comportamiento de interfaz. |
+| `tests/test_dashboard.py` | Conserva las verificaciones de totales y actualiza el contrato de comparación; retira pruebas de controles eliminados. |
+| `tests/test_dashboard_simplificado.py` | Verifica valores históricos conservados y el nuevo mensaje sin datos anteriores. |
+| `tests/test_en_vivo_ui.py`, `tests/test_app.py` | Pruebas de refresco y limpieza con los controles actuales. |
+| `README.md`, esta guía | Uso, entrega y pruebas. |
+
+No se cambian tablas, RLS, consultas a Supabase, sesiones de autenticación ni otros módulos. **No hay SQL que ejecutar ni dependencias nuevas**. El panel de reportes conserva sus filtros y exportaciones propios; no queda ligado al rango del Dashboard.
+
+## Pruebas y resultado esperado
+
+Las pruebas usan AppTest, funciones puras y datos ficticios; no crean ventas ni casos reales. No se tomaron capturas de dispositivos físicos.
+
+| Prueba | Qué debería verse / comprobarse |
+|---|---|
+| Noviembre 2026, cambiar las cuatro agrupaciones | Fechas y encabezados de la tabla inicial; Siguiente desactivado en el período vigente. |
+| Anterior desde enero o primer trimestre | Diciembre o cuarto trimestre del año anterior; Siguiente vuelve al período de partida. |
+| Febrero 2024 / febrero 2026 | Último día 29 / 28, respectivamente; sin fechas inexistentes. |
+| 31 de marzo y 1 de abril | Pertenecen a T1 y T2, respectivamente. Lo mismo se prueba en junio/julio, septiembre/octubre y diciembre/enero. |
+| Ventas el primer y último día del rango | Ambas se incluyen; las del día anterior y posterior no. Anuladas excluidas. |
+| Un solo grupo / rango de varios grupos | Desglose menor / agrupación elegida; se conservan ceros y la suma coincide con los KPI. |
+| Cambiar una fecha | Encabezado Rango personalizado; se agrupa según la opción elegida. |
+| Desde posterior a Hasta | Aviso y último rango válido intacto; no se corrigen fechas de forma silenciosa. |
+| Limpiar con Trimestral seleccionado | Toma el trimestre vigente, conserva Trimestral y elimina el error. |
+| No hay ventas anteriores | Sin datos del período anterior, sin indicador verde de +0,0%. |
+| Esperar refresco o ir a Hoy y volver | Se conservan agrupación, fechas y rango aplicado dentro de la sesión. |
+| Pantalla móvil en AppTest | Filtros en bloque móvil; se conservan controles y acciones. La inspección visual física de anchos concretos sigue siendo manual. |
 
 ```powershell
-python -m pip install -r requirements.txt
-python -m unittest discover -s tests -p "test_*.py" -v
-python -m streamlit run app.py
+python -m unittest discover -s tests -p test_periodos.py -v
+python -m unittest discover -s tests -p test_dashboard*.py -v
+python -m unittest discover -s tests
 ```
 
-Para acceder al tablero usa una cuenta de Administración. La migración de permisos de la entrega anterior sigue siendo necesaria para el rol admin; este dashboard no agrega una migración nueva. Los cambios permanecen locales hasta publicarse en GitHub/Streamlit.
+La entrega incluye además la ejecución de la suite de regresión de toda la aplicación. Los tests de reportes comprueban que su calendario y sus totales no cambian al reutilizar las funciones extraídas.
 
-Las pruebas de servicio usan casos y ventas ficticios e incluyen un rango vacío, una sola venta de $1.250.000, semanas ISO que cruzan de año, cierres de trimestre/semestre, períodos cero, zona horaria chilena, anulaciones, filtros combinados y variación contra el bloque anterior. Las pruebas AppTest recorren las cinco agrupaciones, los rangos rápidos, las fechas manuales, Limpiar, la vista móvil y los indicadores sin actividad; también conservan el recorrido administrativo completo.
-
-Comprobación manual:
-
-1. En un rango sin ventas: no debe aparecer Venta promedio $0 ni ejes 0.000000; debe verse — y un mensaje amigable.
-2. Con una venta ficticia de $1.250.000: Ventas del período y Venta promedio deben indicar $1.250.000, Ventas cerradas 1; los demás períodos deben seguir presentes.
-3. Cambia las cinco agrupaciones: se conservan los totales para las mismas fechas; cambia la distribución de barras. Si el rango necesita ampliarse, revisa el aviso y las nuevas fechas.
-4. Cambia un rango rápido y luego una fecha: primero se actualizan ambas fechas; después aparece Personalizado.
-5. Filtra servicio/temática y pulsa Limpiar: deben restablecerse los valores iniciales.
-6. En 375 px: se ve Filtros plegado y chips; al abrirlo se pueden editar todos los controles. En escritorio deben quedar en una fila.
-7. Con una solicitud Cotizada: el gráfico y el listado deben usar Cotizada y conteos 0, 1, 2… sin fracciones.
-
-La revisión visual real del navegador a 375 px queda pendiente; AppTest verifica la estructura y la rama móvil, pero no dibuja una pantalla física.
-
-Referencia de la detección de pantalla: [componentes nativos de Streamlit](https://docs.streamlit.io/develop/concepts/custom-components/components-v2/register).
+Resultados: **245/245** en la suite completa; comprobación final de **10/10** pruebas de períodos (incluidas dos comprobaciones adicionales), **20/20** de Dashboard y **9/9** de reportes.

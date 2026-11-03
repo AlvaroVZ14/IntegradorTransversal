@@ -396,39 +396,31 @@ class AppTests(unittest.TestCase):
         self.assertNotIn('Diaria',by_label(app.selectbox,'Agrupar por').options)
 
     def test_dashboard_filter_callbacks_and_reset(self):
-        from servicios.dashboard import rango_rapido
+        from servicios.periodos import periodo_vigente
         from datetime import timedelta
         app,repo=self.setup_app()
-        app.run()
-        ir_a(app,'Dashboard')
-        by_label(app.selectbox,'Rango rápido').set_value('Año anterior').run()
-        self.assert_clean(app)
-        expected=rango_rapido('Año anterior',today())
+        app.run();ir_a(app,'Dashboard')
+        by_label(app.selectbox,'Agrupar por').set_value('Trimestral').run()
+        expected=periodo_vigente('Trimestral',today())
         self.assertEqual(by_label(app.date_input,'Desde').value,expected[0])
         self.assertEqual(by_label(app.date_input,'Hasta').value,expected[1])
         by_label(app.date_input,'Desde').set_value(expected[0]+timedelta(days=1)).run()
-        self.assertEqual(by_label(app.selectbox,'Rango rápido').value,'Personalizado')
-        by_label(app.selectbox,'Servicio').set_value('Coaching dúo').run()
-        by_label(app.selectbox,'Temática').set_value('Trabajo en equipo').run()
-        by_label(app.button,'Limpiar').click().run()
-        self.assert_clean(app)
-        self.assertEqual(by_label(app.selectbox,'Agrupar por').value,'Mensual')
-        self.assertEqual(by_label(app.selectbox,'Servicio').value,'Todos')
-        self.assertEqual(by_label(app.selectbox,'Temática').value,'Todas')
-        self.assertEqual(by_label(app.selectbox,'Rango rápido').value,'Últimos 6 meses')
+        self.assertTrue(app.session_state['dash_aplicado'][3])
+        by_label(app.button,'Limpiar').click().run();self.assert_clean(app)
+        self.assertEqual(by_label(app.selectbox,'Agrupar por').value,'Trimestral')
+        self.assertEqual(by_label(app.date_input,'Desde').value,expected[0])
+        self.assertFalse(app.session_state['dash_aplicado'][3])
+        self.assertFalse(any(x.label in ('Rango rápido','Servicio','Temática') for x in app.selectbox))
 
-    def test_dashboard_minimum_range_and_mobile_expander(self):
+    def test_dashboard_single_range_and_mobile_expander(self):
         app,repo=self.setup_app()
         app.session_state['dashboard_mobile']=True
-        app.run()
-        ir_a(app,'Dashboard')
-        self.assert_clean(app)
+        app.run();ir_a(app,'Dashboard');self.assert_clean(app)
         self.assertTrue(any(e.label=='Filtros' for e in app.expander))
-        by_label(app.selectbox,'Agrupar por').set_value('Semanal').run()
         by_label(app.date_input,'Desde').set_value(today()).run()
         self.assert_clean(app)
-        self.assertTrue(any('Ampliamos el rango' in x.value for x in app.info))
-        self.assertEqual(by_label(app.selectbox,'Rango rápido').value,'Personalizado')
+        self.assertEqual(by_label(app.date_input,'Desde').value,today())
+        self.assertFalse(any('Ampliamos el rango' in x.value for x in app.info))
 
     def test_dashboard_every_group_renders(self):
         from servicios.dashboard import AGRUPACIONES
@@ -446,7 +438,7 @@ class AppTests(unittest.TestCase):
         app.run()
         ir_a(app,'Dashboard')
         self.assertEqual(repo.live_snapshot.call_count,2)
-        by_label(app.selectbox,'Temática').set_value('Liderazgo').run()
+        by_label(app.selectbox,'Agrupar por').set_value('Trimestral').run()
         self.assertEqual(repo.live_snapshot.call_count,2)
         app.session_state['dashboard_revision']=1
         app.run()

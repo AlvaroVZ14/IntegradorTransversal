@@ -28,7 +28,7 @@ class DashboardSimplificadoTests(unittest.TestCase):
                 'Solicitudes que se vendieron','Ventas con pago pendiente'])
             for label,valor in esperados.items():
                 self.assertEqual(base.fila_indicador(app,label)['Valor'],valor)
-            self.assertEqual(base.fila_indicador(app,'Cantidad de ventas')['Variación'],'Sin comparación previa')
+            self.assertEqual(base.fila_indicador(app,'Cantidad de ventas')['Variación'],'Sin datos del período anterior')
             self.assertTrue(any('6 ventas registradas' in c.value for c in app.caption))
             self.assertIn('no casos en estado Cerrada',base.by_label(app.metric,'Total vendido').help)
             self.assertEqual(len(app.get('plotly_chart')),9)

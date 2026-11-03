@@ -13,16 +13,14 @@ class EnVivoUI(unittest.TestCase):
         repo.live_snapshot=Mock(wraps=repo.live_snapshot)
         with patch('servicios.en_vivo.time',return_value=120) as clock:
             app.run();base.ir_a(app,'Dashboard')
-            base.by_label(app.selectbox,'Temática').set_value('Liderazgo').run()
-            base.by_label(app.selectbox,'Agrupar por').set_value('Semanal').run()
+            base.by_label(app.selectbox,'Agrupar por').set_value('Trimestral').run()
             self.assertEqual(repo.live_snapshot.call_count,2) # Hoy + Dashboard.
             repo.case_rows=[dict(id='empresa-ficticia',numero=1,cliente='Empresa Ficticia',servicio='Coaching individual',
                 tematica='Liderazgo',estado='Solicitud',created_at=base.today().isoformat()+'T12:00:00Z',origen='Formulario web',modalidad='Online')]
             clock.return_value=180;app.run()
             self.assert_clean(app)
             self.assertEqual(base.fila_indicador(app,'Solicitudes recibidas en el período')['Valor'],'1')
-            self.assertEqual(base.by_label(app.selectbox,'Temática').value,'Liderazgo')
-            self.assertEqual(base.by_label(app.selectbox,'Agrupar por').value,'Semanal')
+            self.assertEqual(base.by_label(app.selectbox,'Agrupar por').value,'Trimestral')
             self.assertFalse(any(b.label=='Actualizar' for b in app.button))
             repo.live_snapshot.side_effect=ConnectionError('Fallo ficticio');clock.return_value=240;app.run()
             self.assert_clean(app)

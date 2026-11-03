@@ -3,8 +3,8 @@ import unittest
 
 import pandas as pd
 
-from servicios.dashboard import (AGRUPACIONES, ajustar_rango, agrupar_por_periodo, datos_dashboard,
-                                etiqueta_periodo, inicio_periodo, rango_anterior, rango_rapido, variacion)
+from servicios.dashboard import (AGRUPACIONES, agrupar_por_periodo, datos_dashboard,
+                                etiqueta_periodo, inicio_periodo, rango_anterior, variacion)
 
 
 def caso(id="a",fecha="2026-01-02T12:00:00Z",servicio="Coaching individual",tematica="Liderazgo",estado="Cotizado"):
@@ -78,28 +78,20 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(variacion(50,100),-50)
         self.assertIsNone(variacion(100,0))
         self.assertIsNone(variacion(None,100))
-        self.assertEqual(variacion(0,0),0)
+        self.assertIsNone(variacion(0,0))
 
-    def test_previous_block_depends_on_grouping(self):
-        self.assertEqual(rango_anterior(date(2026,7,1),date(2026,12,31),'Mensual'),(date(2026,1,1),date(2026,6,30)))
-        self.assertEqual(rango_anterior(date(2026,7,1),date(2026,12,31),'Trimestral'),(date(2026,1,1),date(2026,6,30)))
-        self.assertEqual(rango_anterior(date(2026,7,1),date(2026,12,31),'Anual'),(date(2025,1,1),date(2025,12,31)))
+    def test_previous_block_has_equal_inclusive_duration_in_every_grouping(self):
+        from datetime import timedelta
+        desde,hasta=date(2026,7,1),date(2026,12,31)
+        for grupo in AGRUPACIONES:
+            self.assertEqual(rango_anterior(desde,hasta,grupo),
+                             (desde-timedelta(days=184),desde-timedelta(days=1)))
 
     def test_variation_against_previous_sales(self):
         cases=[caso('a',fecha='2025-12-01T12:00:00Z'),caso('b')]
         data=datos_dashboard(cases,[venta('a','2025-12-20',100),venta('b','2026-01-15',150)],date(2026,1,1),date(2026,1,31))
         self.assertEqual(data['variations']['total'],50)
         self.assertEqual(data['previous']['total'],100)
-
-    def test_quick_ranges_and_minimum_visible_periods(self):
-        today=date(2026,10,21)
-        self.assertEqual(rango_rapido('Últimos 6 meses',today),(date(2026,5,1),today))
-        self.assertEqual(rango_rapido('Últimas 8 semanas',today),(date(2026,8,31),today))
-        self.assertEqual(rango_rapido('Año anterior',today),(date(2025,1,1),date(2025,12,31)))
-        start,end,message=ajustar_rango(date(2026,10,20),today,'Semanal')
-        self.assertEqual(start,date(2026,9,28));self.assertEqual(end,today);self.assertTrue(message)
-        start,end,message=ajustar_rango(today,today,'Trimestral')
-        self.assertEqual(start,date(2026,7,1));self.assertTrue(message)
 
     def test_two_argument_aggregation_with_explicit_frame_range(self):
         df=pd.DataFrame(columns=['fecha_venta','monto_clp'])
@@ -119,8 +111,3 @@ class DashboardTests(unittest.TestCase):
         data=datos_dashboard([caso()],[venta()],date(2026,1,1),date(2026,3,31))
         spec=grafico_periodos(data['series'],solicitudes=True).to_plotly_json()
         self.assertEqual(spec['layout']['yaxis']['dtick'],1)
-
-    def test_adjust_reversed_dates(self):
-        start,end,message=ajustar_rango(date(2026,3,31),date(2026,1,1),'Mensual')
-        self.assertEqual((start,end),(date(2026,1,1),date(2026,3,31)))
-        self.assertTrue(message)
