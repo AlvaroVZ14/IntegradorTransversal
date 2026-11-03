@@ -58,7 +58,7 @@ def pendientes(casos,cotizaciones,ventas,eventos,envios,config,ahora=None):
         item=dict(caso=caso,cotizacion=q_venta or q,venta=v,dias=dias)
         if not q and caso['estado'] in ('Solicitud','En revisión'):grupos['solicitudes'].append(item)
         emitida=fecha((q or {}).get('fecha_emision'))
-        if q and not v and caso['estado']=='Cotizado' and emitida and (hoy-emitida).days>=config['dias_sin_respuesta']:
+        if q and not v and caso['estado']=='Cotizado' and emitida and (hoy-emitida).days>config['dias_sin_respuesta']:
             contactos=[instante(e.get('created_at')) for e in eventos if e['caso_id']==caso['id'] and
                 e.get('tipo')=='seguimiento' and e.get('cotizacion_id')==q['id'] and e.get('datos',{}).get('tipo_mensaje')=='seguimiento']
             reciente=max((d for d in contactos if d),default=None)
@@ -91,6 +91,19 @@ def pendientes(casos,cotizaciones,ventas,eventos,envios,config,ahora=None):
         caso=casos_por_id.get(envio['caso_id'])
         if revisar and not revisado and caso:grupos['correos'].append(dict(caso=caso,envio=envio,cotizacion=next((q for q in cotizaciones if q['id']==envio['cotizacion_id']),None)))
     return grupos
+
+
+FILTROS_ACCION = {'Por cotizar':'solicitudes', 'Pagos por registrar':'pagos',
+                  'Cotizaciones sin respuesta':'seguimientos'}
+
+
+def casos_por_accion(datos, filtro, ahora=None):
+    """Hoy y Registro comparten exactamente las mismas reglas y fuente de datos."""
+    if filtro not in FILTROS_ACCION:
+        raise ValueError('Selecciona un filtro de pendientes válido.')
+    tareas = pendientes(*(datos[k] for k in ('casos','cotizaciones','ventas','eventos','envios')),
+                        configuracion_hoy(datos.get('configuracion',{})), ahora)
+    return [item['caso'] for item in tareas[FILTROS_ACCION[filtro]]]
 
 
 def mensaje_listo(tipo,caso,cotizacion,venta,config):

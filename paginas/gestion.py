@@ -11,7 +11,7 @@ from servicios.cotizacion_defaults import RESERVA_PCT_DEFAULT,REMUNERACION_PCT_D
 from mente_futuro.ui import flash, show_error
 from utils.permisos import require_admin
 from utils.estados import etiqueta_estado, etiqueta_opcion_estado
-from utils.componentes import (badge_estado, leyenda_estados, tabla_registros, encabezado_pagina,
+from utils.componentes import (badge_estado, tabla_registros, encabezado_pagina,
                                titulo_seccion, cargando_datos)
 from servicios.lecturas_locales import leer_con_respaldo
 from servicios.en_vivo import cargar, carga_inicial
@@ -161,10 +161,29 @@ def _cerrar_detalle():
     st.session_state.pop('selected_case', None)
 
 
+def _cambio_estado_registro():
+    state=st.session_state
+    estado=state.get('casos_estado_filtro','Todos los estados')
+    state.casos_chips_estados=estado if estado in ('Todos los estados',*STATES) else None
+    state.selected_case=None
+    state.pop('caso_abierto',None)
+    state.pop('caso_navegar',None)
+
+
+def _cambio_chip_estado():
+    st.session_state.casos_estado_filtro=st.session_state.get('casos_chips_estados') or 'Todos los estados'
+    _cambio_estado_registro()
+
+
 def _listado_casos(repo):
     require_admin(repo)
-    with carga_inicial('casos', 'Buscando tus casos…'):
-        lectura = cargar(repo, 'casos')
+    from servicios.hoy import FILTROS_ACCION,casos_por_accion
+    filtro_previo=st.session_state.get('casos_estado_filtro','Todos los estados')
+    # Una sola lectura: los filtros de acción necesitan cotizaciones/pagos y
+    # reutilizan el snapshot de Hoy, que también contiene el registro completo.
+    vista='hoy' if filtro_previo in FILTROS_ACCION else 'casos'
+    with carga_inicial(vista, 'Buscando tus casos…'):
+        lectura = cargar(repo, vista)
     if 'datos' not in lectura:
         indicador_en_vivo('casos', publicar=True, pausado=bool(st.session_state.get('caso_abierto')))
         st.info('Aún no pudimos conectar. El listado aparecerá cuando vuelva la conexión.')
@@ -174,13 +193,20 @@ def _listado_casos(repo):
     st.write("")
     a,b = st.columns([2,1])
     search = a.text_input("Buscar un caso",placeholder="Nombre, servicio o número de caso",label_visibility="collapsed",key='casos_busqueda')
-    state = b.selectbox("Filtrar estado",["Todos los estados",*STATES],label_visibility="collapsed",format_func=etiqueta_opcion_estado,key='casos_estado_filtro')
-    filtered = [c for c in cases if (state == "Todos los estados" or c["estado"] == state) and search.casefold() in f"{c['cliente']} {c['servicio']} {code(c)}".casefold()]
+    state = b.selectbox("Filtrar estado",["Todos los estados",*STATES,*FILTROS_ACCION],label_visibility="collapsed",format_func=etiqueta_opcion_estado,
+                        key='casos_estado_filtro',on_change=_cambio_estado_registro,
+                        help='Elige un estado o uno de los tres grupos de pendientes de Hoy.')
+    st.session_state.setdefault('casos_chips_estados',state if state in ('Todos los estados',*STATES) else None)
+    st.pills('Estados del caso',['Todos los estados',*STATES],selection_mode='single',
+             format_func=etiqueta_opcion_estado,key='casos_chips_estados',on_change=_cambio_chip_estado)
+    if state in FILTROS_ACCION:
+        cases=casos_por_accion(lectura['datos'],state)
+    filtered = [c for c in cases if (state in ('Todos los estados',*FILTROS_ACCION) or c["estado"] == state)
+                and search.casefold() in f"{c['cliente']} {c['servicio']} {code(c)}".casefold()]
     if not filtered:
         st.info("No hay casos que mostrar. Crea una solicitud o ajusta los filtros.")
         return
     frame = case_table(filtered)
-    leyenda_estados()
     tabla_registros(frame)
     if repo.is_owner:
         st.download_button("Exportar listado CSV",csv_bytes(frame),file_name="casos-mente-y-futuro.csv",mime="text/csv")

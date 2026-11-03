@@ -180,3 +180,5 @@ El cliente también puede **Enviar documentos** a sus propios casos desde Mis do
 El Dashboard usa cuatro controles y períodos calendario con navegación Anterior/Siguiente, desglose automático y comparación de igual duración. La [guía de períodos del Dashboard](docs/dashboard_periodos.md) detalla su funcionamiento y las pruebas. No necesita migraciones SQL ni dependencias nuevas.
 
 La presentación simplificada muestra cuatro KPI y cinco gráficos. Para ver un ejemplo sin alterar ventas reales, activa **Ver datos de prueba** en el Dashboard de Administración. Detalles y archivos: [Dashboard simple](docs/dashboard_simple24.md).
+
+Hoy muestra tres tarjetas accionables y hasta cinco solicitudes por cotizar; el registro completo incorpora sus filtros y chips de estado clicables. Lista de bloques retirados y pruebas: [Hoy y Registro sin repeticiones](docs/hoy_registro25.md).

@@ -10,12 +10,11 @@ from mente_futuro.ui import flash,show_error
 from servicios.hoy import configuracion_hoy,pendientes,saludo,mensaje_listo,CHILE
 from servicios.envio_cotizacion import enlace_whatsapp
 from utils.permisos import require_admin
-from utils.componentes import encabezado_pagina,tarjeta_kpi,todo_al_dia
+from utils.componentes import encabezado_pagina,tarjeta_accion,todo_al_dia
 from utils.mensaje_listo import copiar_mensaje
 from utils.validaciones import validar_campo
 from servicios.en_vivo import cargar, carga_inicial, estado
-from utils.en_vivo import indicador, guardar_metricas
-from utils.metricas_visuales import ingresos_seis_meses
+from utils.en_vivo import indicador
 
 
 def abrir_caso(caso,tab='datos'):
@@ -23,10 +22,21 @@ def abrir_caso(caso,tab='datos'):
     st.session_state.pending_navigation='Casos y cotizaciones'
     st.session_state.casos_busqueda=''
     st.session_state.casos_estado_filtro='Todos los estados'
+    st.session_state.casos_pestana='Registro de casos'
+    st.session_state.pop('casos_chips_estados',None)
     st.session_state.pop('abrir_cotizacion',None);st.session_state.pop('abrir_venta',None)
     if tab=='cotizar':st.session_state.abrir_cotizacion=caso['id']
     elif tab=='venta':st.session_state.abrir_venta=caso['id']
     else:st.session_state.abrir_datos_caso=True
+
+
+def abrir_registro(filtro):
+    from servicios.hoy import FILTROS_ACCION
+    if filtro not in FILTROS_ACCION:raise ValueError('Filtro de pendientes no válido.')
+    st.session_state.update(pending_navigation='Casos y cotizaciones',casos_pestana='Registro de casos',
+        casos_busqueda='',casos_estado_filtro=filtro,selected_case=None)
+    for key in ('caso_abierto','caso_navegar','abrir_cotizacion','abrir_venta','abrir_datos_caso','casos_chips_estados'):
+        st.session_state.pop(key,None)
 
 
 def _abrir_mensaje(tipo,caso,q=None,venta=None):
@@ -120,20 +130,17 @@ def _contenido(repo, pausado=False):
     config=configuracion_hoy(datos['configuracion'])
     tareas=pendientes(casos,cotizaciones,ventas,eventos,envios,config,ahora)
     total=sum(len(v) for v in tareas.values())
-    guardar_metricas('hoy',[('Por cotizar',len(tareas['solicitudes'])),('Pagos por registrar',len(tareas['pagos'])),('Acciones pendientes',total)])
     indicador('hoy', publicar=True, pausado=pausado)
-    grupos_kpi={'Acciones pendientes':[x for grupo in tareas.values() for x in grupo],
-                'Por cotizar':tareas['solicitudes'],'Pagos por registrar':tareas['pagos']}
     columnas=st.columns(3)
-    for columna,(label,valor,icono,tono) in zip(columnas,[('Acciones pendientes',total,'◷','azul'),('Por cotizar',len(tareas['solicitudes']),'✧','morado'),('Pagos por registrar',len(tareas['pagos']),'$','amarillo')]):
-        puntos,meses=ingresos_seis_meses([i['caso'] for i in grupos_kpi[label]],ahora.date())
-        contexto={'Acciones pendientes':f'{valor} {"acción" if valor==1 else "acciones"} para avanzar hoy',
-                  'Por cotizar':f'{valor} {"solicitud esperando" if valor==1 else "solicitudes esperando"} cotización',
-                  'Pagos por registrar':f'{valor} {"venta" if valor==1 else "ventas"} con pago por completar'}[label]
-        with columna:tarjeta_kpi(label,valor,icon=icono,tone=tono,key='hoy_'+label,caption=contexto,
-                                serie=puntos,etiquetas=meses,contexto_serie='Pendientes actuales, por mes de ingreso')
+    tarjetas=[('Por cotizar','solicitudes',':material/request_quote:','Solicitudes sin cotización emitida; incluye solicitudes en revisión.'),
+        ('Pagos por registrar','pagos',':material/payments:','Ventas no anuladas con pago pendiente o abono recibido, en casos abiertos.'),
+        ('Cotizaciones sin respuesta','seguimientos',':material/schedule:',
+         f"Más de {config['dias_sin_respuesta']} días desde la emisión, sin venta y respetando la pausa tras un seguimiento.")]
+    for columna,(label,grupo,icono,ayuda) in zip(columnas,tarjetas):
+        with columna:
+            tarjeta_accion(label,len(tareas[grupo]),key=grupo,icono=icono,ayuda=ayuda,
+                           on_click=abrir_registro,args=(label,))
     if not total:
-        st.success('Todo al día. Buen trabajo')
         todo_al_dia()
     from paginas.compartir import tarjeta_compartir
     tarjeta_compartir(datos['configuracion'])
@@ -141,8 +148,9 @@ def _contenido(repo, pausado=False):
             ('pagos','Ventas con pago pendiente o anticipo'),('cierres','Casos que se pueden cerrar'),('correos','Correos por revisar')]
     for clave,titulo in grupos:
         if not tareas[clave]:continue
-        st.subheader(f'{titulo} · {len(tareas[clave])}')
-        for i,item in enumerate(tareas[clave]):
+        st.subheader(titulo)
+        visibles=tareas[clave][:5] if clave=='solicitudes' else tareas[clave]
+        for i,item in enumerate(visibles):
             caso=item['caso'];q=item.get('cotizacion');venta=item.get('venta')
             with st.container(key=f'mfy_form_hoy_{clave}_{i}'):
                 st.markdown('**'+code(caso)+' · '+caso['cliente']+'**')
@@ -177,6 +185,8 @@ def _contenido(repo, pausado=False):
                             st.session_state.pop(key+'_op',None)
                             flash('Intento marcado como revisado. No se reenvió el correo.')
                         except Exception:st.warning('No pudimos registrar la revisión. Puedes reintentar.')
+        if clave=='solicitudes':
+            st.button('Ver todas',key='hoy_solicitudes_todas',on_click=abrir_registro,args=('Por cotizar',))
     post=st.session_state.get('hoy_post_cierre')
     if post:
         with st.container(key='mfy_form_post_cierre'):
@@ -207,7 +217,7 @@ def hoy_page(repo):
     ahora=datetime.now(CHILE)
     nombre=((repo.profile.get('nombre') or '').split() or ['Administración'])[0]
     encabezado_pagina(f'{saludo(ahora.hour)}, {nombre}',f'{ahora:%d/%m/%Y · %H:%M} · Tus próximos pasos, en un solo lugar.',
-                      'HOY','☀')
+                      'HOY','☀',mostrar_metricas=False)
     if st.session_state.get('hoy_mensaje') or st.session_state.get('hoy_post_cierre'):
         # Conserva las tarjetas mientras se edita el mensaje, sin programar lecturas.
         _contenido(repo, pausado=True)

@@ -104,7 +104,7 @@ class HoyUITests(unittest.TestCase):
         app,repo=self.setup_app();app.run()
         self.assert_clean(app)
         self.assertEqual(app.session_state['navigation'],'Hoy')
-        self.assertTrue(any('Todo al día. Buen trabajo' in s.value for s in app.success))
+        self.assertTrue(any('Todo al día. Buen trabajo' in s.value for s in app.markdown))
         cliente,r=self.setup_app(False)
         r.all_quotes=Mock(side_effect=AssertionError('No debe consultar'))
         cliente.query_params['pagina']='Hoy';cliente.run()

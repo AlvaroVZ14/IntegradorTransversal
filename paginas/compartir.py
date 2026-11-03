@@ -13,14 +13,17 @@ def abrir_opciones_portal():
 def tarjeta_compartir(datos):
     """Reutiliza la configuración de la lectura de Hoy, sin otra consulta."""
     with st.container(key='mfy_form_compartir_hoy'):
-        st.subheader('Comparte tu formulario')
-        st.caption('Un enlace para que las personas te cuenten qué necesita su equipo.')
+        st.markdown('**Comparte tu formulario**')
+        copiar,acceso=st.columns(2)
         base,detectada=resolver_url(datos,url_detectada())
         if base and not es_local(base):
-            copiar_mensaje(enlace_canal(base,'directo'),'hoy_copiar_formulario',etiqueta='Copiar enlace',confirmacion='Enlace copiado ✓')
-            if detectada:st.caption('Usamos la dirección detectada. Confírmala y guárdala en Compartir.')
-        else:st.caption('Configura la URL pública para compartir tu formulario.')
-        st.page_link('paginas/compartir.py',label='Ir a Compartir',icon=':material/share:')
+            with copiar:
+                copiar_mensaje(enlace_canal(base,'directo'),'hoy_copiar_formulario',etiqueta='Copiar enlace',confirmacion='Enlace copiado ✓')
+        else:
+            copiar.button('Copiar enlace',disabled=True,width='stretch',key='hoy_copiar_sin_url',
+                          help='Completa una URL pública válida en Compartir.')
+            st.caption('Configura la URL pública para compartir tu formulario.')
+        acceso.page_link('paginas/compartir.py',label='Ir a Compartir',icon=':material/share:')
 
 def compartir_page(repo):
     require_admin(repo)

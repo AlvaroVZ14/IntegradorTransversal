@@ -552,6 +552,16 @@ ESTILOS_BASE += """
 # Dashboard: selectores internos stColumn/stMetric acotados a esta página.
 # La fila nativa de cuatro columnas se mantiene en dos columnas en celular.
 ESTILOS_BASE += """
+/* Hoy: la tarjeta completa es un botón nativo, sin métricas duplicadas. */
+[class*="st-key-mfy_hoy_accion_"] button{min-height:138px;width:100%;justify-content:flex-start;text-align:left;padding:20px;border-radius:16px;border:1px solid var(--mfy-border);background:var(--mfy-white);box-shadow:var(--mfy-shadow);border-top:3px solid var(--mfy-purple);}
+[class*="st-key-mfy_hoy_accion_"] button strong{display:block;font-size:30px;line-height:1.2;color:var(--mfy-text);}
+[class*="st-key-mfy_hoy_accion_"] button p{color:var(--mfy-text);font-size:15px;line-height:1.4;}
+[class*="st-key-mfy_hoy_accion_"] button:hover{border-color:var(--mfy-purple);box-shadow:var(--mfy-shadow-hover);}
+[class*="st-key-mfy_hoy_accion_"] button:focus-visible{outline:3px solid var(--mfy-blue);outline-offset:3px;}
+.st-key-mfy_form_compartir_hoy{padding:12px 16px;}
+.st-key-hoy_solicitudes_todas button{border:0;box-shadow:none;background:transparent;color:var(--mfy-blue);text-decoration:underline;min-height:44px;}
+/* st.pills: altura táctil de los chips nativos, con foco y selección accesibles. */
+.st-key-casos_chips_estados button{min-height:44px;white-space:normal;}
 .st-key-mfy_dashboard .st-key-mfy_page_header{min-height:132px;padding:18px 24px;margin-bottom:8px;}
 .st-key-mfy_dashboard .mfy-hero{min-height:132px;padding:18px 24px;}
 .mfy-preview-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:12px 0;}

@@ -199,6 +199,13 @@ def tarjeta_kpi(label, value, *, icon="↗", tone="azul", delta=None, help=None,
             if contexto_serie:st.caption(contexto_serie)
 
 
+def tarjeta_accion(titulo, cantidad, *, key, icono, ayuda, on_click, args=()):
+    """Toda la tarjeta es un botón nativo: teclado, foco y callback protegidos."""
+    with st.container(key='mfy_hoy_accion_'+key):
+        st.button(f'**{cantidad}**\n\n{titulo}', icon=icono, help=ayuda,
+                  key='hoy_tarjeta_'+key, width='stretch', on_click=on_click, args=args)
+
+
 def todo_al_dia():
     st.markdown('<div class="mfy-all-done">'+ampolleta_svg()+
                 '<div><strong>Todo al día. Buen trabajo</strong><p>Hoy tienes espacio para nuevas ideas.</p></div></div>',unsafe_allow_html=True)
