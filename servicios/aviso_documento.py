@@ -24,3 +24,30 @@ def avisar_documento(documentos,documento,settings,destinatario):
     try:documentos.resultado_aviso(documento['id'],'enviado')
     except Exception:return 'enviado_sin_registro'
     return 'enviado'
+
+
+def avisar_socia(documentos, documento_id, settings):
+    """Un aviso genérico al correo de contacto guardado; nunca al que el cliente elija."""
+    try:
+        reserva = documentos.reservar_aviso_socia(documento_id)
+        if not reserva:
+            return 'ya_reservado'
+        destinatario = reserva.get('correo', '')
+        if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', destinatario) or any(c in destinatario for c in '\r\n'):
+            documentos.resultado_aviso_socia(documento_id, 'fallido')
+            return 'fallido'
+        mensaje = EmailMessage()
+        mensaje['From'] = settings.get('remitente', '')
+        mensaje['To'] = destinatario
+        mensaje['Subject'] = 'Tienes un nuevo documento en Mente y Futuro'
+        mensaje['Date'] = formatdate(localtime=True)
+        mensaje['Message-ID'] = make_msgid()
+        mensaje.set_content('Hola,\n\nRecibiste un nuevo documento en Mente y Futuro. Ingresa a la aplicación para revisarlo.\n')
+        entregar_mensaje(mensaje, settings)
+    except Exception:
+        try:documentos.resultado_aviso_socia(documento_id, 'incierto')
+        except Exception:pass
+        return 'incierto'
+    try:documentos.resultado_aviso_socia(documento_id, 'enviado')
+    except Exception:return 'enviado_sin_registro'
+    return 'enviado'

@@ -1,6 +1,6 @@
 """Persistencia privada con JWT, operaciones recuperables y enlaces de diez minutos."""
 from uuid import uuid5,UUID
-from servicios.archivos_caso import BUCKET,TIPOS,VISIBLES,validar_archivo,identidad_archivo
+from servicios.archivos_caso import BUCKET,TIPOS,TIPOS_TODOS,VISIBLES,validar_archivo,identidad_archivo
 from servicios.repositorio import fila_rpc
 
 
@@ -53,6 +53,11 @@ class DocumentosCaso:
     def visibilidad(self,documento_id,visible):
         self.repo.owner_only()
         return fila_rpc(self.client.table('mf_documentos').update({'visible_cliente':bool(visible)}).eq('id',documento_id).eq('estado_archivo','disponible').execute().data)
+
+    def cambiar_tipo(self,documento_id,tipo):
+        self.repo.owner_only()
+        if tipo not in TIPOS_TODOS:raise ValueError('Selecciona un tipo de documento válido.')
+        return fila_rpc(self.client.table('mf_documentos').update({'tipo':tipo}).eq('id',documento_id).execute().data)
 
     def enlace(self,documento_id):
         fila=self.buscar(documento_id)

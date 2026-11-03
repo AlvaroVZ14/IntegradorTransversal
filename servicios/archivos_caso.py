@@ -10,6 +10,8 @@ import warnings
 MAX_BYTES=10*1024*1024
 BUCKET='documentos-casos'
 TIPOS=('Lista de asistencia','Informe','Certificado','Material','Cotización','Otro')
+TIPOS_CLIENTE=('Antecedentes de la empresa','Nómina de participantes','Requerimientos','Otro')
+TIPOS_TODOS=tuple(dict.fromkeys(TIPOS+TIPOS_CLIENTE))
 VISIBLES=('Lista de asistencia','Informe','Certificado','Material')
 MIMES={'.pdf':'application/pdf','.docx':'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
        '.xlsx':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

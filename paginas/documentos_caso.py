@@ -2,7 +2,7 @@
 from hashlib import sha256
 from uuid import UUID,uuid4,uuid5
 import streamlit as st
-from servicios.archivos_caso import TIPOS
+from servicios.archivos_caso import TIPOS,TIPOS_TODOS
 from servicios.documentos_caso import DocumentosCaso
 from servicios.aviso_documento import avisar_documento
 from utils.permisos import require_admin
@@ -84,11 +84,22 @@ def documentos_caso(repo,caso,cotizaciones):
         filas=documentos.listar(cid)
     activos=[d for d in filas if d['estado_archivo']!='eliminado']
     if not activos:st.info('Este caso aún no tiene documentos. Puedes subir el primero.');return
+    origen=st.selectbox('Origen de los documentos',['Todos','Enviados por la socia','Enviados por el cliente'],key='doc_origen_'+cid)
+    if origen!='Todos':
+        activos=[d for d in activos if d.get('origen','socia')==('cliente' if origen=='Enviados por el cliente' else 'socia')]
+    if not activos:st.info('No hay documentos de este origen.')
     from datetime import datetime
     from zoneinfo import ZoneInfo
     for d in activos:
         with st.container(border=True):
+            if d.get('origen')=='cliente':st.caption('📎 Enviado por el cliente')
             st.write(d['tipo']+' · '+d['nombre'])
+            if d.get('origen')=='cliente':
+                with st.form('doc_tipo_'+d['id']):
+                    tipo_editado=st.selectbox('Tipo de documento',TIPOS_TODOS,index=TIPOS_TODOS.index(d['tipo']))
+                    if st.form_submit_button('Cambiar tipo'):
+                        try:documentos.cambiar_tipo(d['id'],tipo_editado);st.rerun()
+                        except Exception as error:_mensaje_error(error)
             fecha=datetime.fromisoformat(d['fecha_subida'].replace('Z','+00:00')).astimezone(ZoneInfo('America/Santiago'))
             st.caption(f"{fecha:%d/%m/%Y %H:%M} · {d['tamano']/1024:.1f} KB".replace('.',','))
             if d.get('nota'):st.text(d['nota'])
@@ -98,6 +109,8 @@ def documentos_caso(repo,caso,cotizaciones):
             llave='doc_visible_'+d['id']
             if llave not in st.session_state:st.session_state[llave]=d['visible_cliente']
             st.toggle('Visible para el cliente',key=llave,on_change=_visibilidad,args=(documentos,d),disabled=d['estado_archivo']!='disponible')
+            if d.get('origen')=='cliente':
+                st.caption('Quien lo envió conserva acceso a su archivo. La visibilidad permite compartirlo también con los demás contactos autorizados del caso.')
             if d['estado_archivo']=='disponible':
                 if st.button('Preparar descarga',key='doc_sign_'+d['id']):
                     try:st.session_state['doc_enlace_'+d['id']]={'url':documentos.enlace(d['id']),'fecha':__import__('time').time()}
