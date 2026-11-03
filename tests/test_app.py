@@ -249,7 +249,8 @@ class AppTests(unittest.TestCase):
         else:
             by_label(app.button,'Siguiente').click().run()
             by_label(app.button,'Siguiente').click().run()
-            by_label(app.checkbox,'Autorizo a Mente y Futuro a utilizar mis datos para gestionar esta solicitud y contactarme.').check()
+            from utils.formulario_config import CAMPOS
+            by_label(app.checkbox,CAMPOS['consentimiento'].etiqueta).check()
         by_label(app.text_area,'Comentarios y objetivos (opcional)').set_value('Desarrollar habilidades de liderazgo.')
         by_label(app.button,'Guardar y cotizar ahora' if interno else 'Enviar solicitud').click().run()
         app.switch_page(PAGINAS[app.session_state['navigation']][0])

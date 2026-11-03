@@ -165,6 +165,9 @@ def editar_caso(repo,caso):
         campo("cliente_id","Cuenta de cliente vinculada al solicitante","selectbox",options=[None,*perfiles],
               format_func=lambda x:perfiles.get(x,"Sin cuenta vinculada"))
         st.caption("La cuenta vinculada identifica al solicitante. El acceso a documentos se comprueba con el correo confirmado del contacto y los correos adicionales.")
+        if 'redes_sociales' in caso:
+            from paginas.redes_caso import redes_caso
+            redes_caso(repo,caso,borrador)
         if 'correos_documentos' in caso:
             campo('correos_documentos','Correos adicionales con acceso a los documentos (opcional)','text_area',max_chars=5200,
                   help='Un correo por línea o separado por coma. Cada persona debe confirmar su cuenta. Quitar un correo revoca su acceso a nuevas descargas.')

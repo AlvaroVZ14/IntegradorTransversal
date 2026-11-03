@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 from utils.validaciones import validar_campo
 
 CAMPOS = ("cliente","contacto","email","telefono","servicio","tematica","estado",
-          "participantes","horas","modalidad","lugar","fecha_preferida","detalle","cliente_id","rut","cargo","origen","fecha_realizacion","dirigido_a","referido_por","tematicas","correos_documentos")
+          "participantes","horas","modalidad","lugar","fecha_preferida","detalle","cliente_id","rut","cargo","origen","fecha_realizacion","dirigido_a","referido_por","tematicas","correos_documentos","redes_sociales")
 
 
 def preparar(almacen, caso):
@@ -29,6 +29,9 @@ def editar(borrador, campo, valor):
     if campo=='correos_documentos' and isinstance(valor,str):
         import re
         valor=sorted(set(e.strip().lower() for e in re.split(r'[,;\n]',valor) if e.strip()))
+    if campo=='redes_sociales' and not validar_campo(campo,valor):
+        from servicios.redes_sociales import normalizar_redes
+        valor=normalizar_redes(valor)
     if campo in ("fecha_preferida","fecha_realizacion") and valor:
         valor=valor.isoformat() if hasattr(valor,"isoformat") else str(valor)
     base=borrador["pendientes"].get(campo,{}).get("base",borrador["ultimo"].get(campo))

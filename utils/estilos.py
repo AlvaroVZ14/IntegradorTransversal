@@ -255,6 +255,9 @@ button:focus-visible,a:focus-visible,.mfy-table-wrap:focus-visible{outline:3px s
 /* Responsive: stHorizontalBlock/stColumn son las columnas internas de Streamlit.
    Bajo 768 px se apilan; los filtros usan además el expander existente. */
 @media(max-width:767px){
+ /* Redes de formulario y caso: columnas nativas apiladas en celular. */
+ :is(.st-key-mfy_redes_empresa,.st-key-mfy_redes_caso) [data-testid="stHorizontalBlock"]{flex-direction:column!important;gap:0;}
+ :is(.st-key-mfy_redes_empresa,.st-key-mfy_redes_caso) [data-testid="stColumn"]{width:100%!important;min-width:0;flex:1 1 100%!important;}
  .stApp::before{--mfy-aurora-blur:16px;animation:none;}
  :is(.st-key-mfy_page_header,.mfy-hero,.st-key-mfy_login_brand,.st-key-mfy_public_header)::after,.mfy-bulb-rays{animation:none;}
  .js-plotly-plot .scatterlayer .js-line{filter:none;}

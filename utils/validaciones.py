@@ -17,6 +17,16 @@ def rut_valido(valor):
 
 
 def validar_campo(campo, valor):
+    from servicios.redes_sociales import REDES,normalizar_red
+    if campo in REDES:
+        try:normalizar_red(campo,valor)
+        except ValueError as error:return str(error)
+        return None
+    if campo=='redes_sociales':
+        if not isinstance(valor,dict) or any(k not in REDES for k in valor):return 'Revisa las redes sociales de la empresa.'
+        for k,v in valor.items():
+            if error:=validar_campo(k,v):return error
+        return None
     if campo=='correos_documentos':
         if not isinstance(valor,list) or len(valor)>20 or any(validar_campo('email',e) for e in valor):
             return 'Revisa los correos adicionales. Puedes agregar hasta 20, separados por coma o en líneas distintas.'

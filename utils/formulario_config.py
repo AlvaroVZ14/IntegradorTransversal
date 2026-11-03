@@ -3,6 +3,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from mente_futuro.domain import MODALITIES
 from servicios.solicitud_rapida import ORIGENES
+from servicios.redes_sociales import REDES
 
 MODOS=('publico','cliente','interno')
 PASOS=('Contacto','Servicio','Detalles y envío')
@@ -35,9 +36,11 @@ CAMPOS={
  'lugar':Campo('Lugar o ciudad (opcional)',3,limite=250),
  'fecha_preferida':Campo('Fecha preferida (opcional)',3,'fecha'),
  'detalle':Campo('Comentarios y objetivos (opcional)',3,'parrafo',limite=5000),
- 'consentimiento':Campo('Autorizo a Mente y Futuro a utilizar mis datos para gestionar esta solicitud y contactarme.',3,'consentimiento',modos=('publico','cliente')),
+ 'consentimiento':Campo('Autorizo a Mente y Futuro a utilizar mis datos, incluidas las redes sociales de mi empresa si las comparto, para gestionar esta solicitud y contactarme. No se utilizarán para marketing.',3,'consentimiento',modos=('publico','cliente')),
  'consentimiento_confirmado':Campo('Confirmé con la persona que sus datos se usarán para esta solicitud',3,'confirmacion',modos=('interno',)),
 }
+for _red, (_nombre, _icono) in REDES.items():
+    CAMPOS[_red]=Campo(_nombre+' (opcional)',1,limite=200)
 OBLIGATORIOS=('cliente','contacto','email','servicio','tematicas','modalidad','participantes','horas')
 BLOQUEADOS={'publico':(), 'cliente':('contacto','email'), 'interno':()}
 DIFERENCIAS_INTENCIONALES={
@@ -55,6 +58,7 @@ OPCIONES={'modalidad':tuple(MODALITIES),'origen':tuple(ORIGENES)}
 DEFAULTS=dict(cliente='',contacto='',rut='',cargo='',email='',telefono='',cliente_id=None,
  origen=ORIGENES[0],referido_por='',servicio=None,tematicas=[],tematica=None,modalidad=MODALITIES[2],
  participantes=1,horas=1.0,dirigido_a='',lugar='',fecha_preferida=None,detalle='')
+DEFAULTS.update({k:'' for k in REDES})
 TEXTOS=tuple(k for k,c in CAMPOS.items() if c.tipo in ('texto','parrafo'))
 
 def valores_iniciales():return deepcopy(DEFAULTS)

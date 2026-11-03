@@ -6,6 +6,7 @@ from servicios.repositorio import public_client,fila_rpc
 from servicios.solicitud_rapida import formatear_rut,normalizar_telefono
 from utils.formulario_config import CAMPOS,OBLIGATORIOS
 from utils.validaciones import validar_campo
+from servicios.redes_sociales import REDES,normalizar_red,normalizar_redes
 
 def modo_servidor(repo):
     if repo is None:return 'publico'
@@ -28,6 +29,9 @@ def datos_normalizados(valores,modo,repo=None):
     datos.pop('consentimiento',None);datos.pop('consentimiento_confirmado',None)
     datos['rut']=formatear_rut(datos.get('rut',''))
     datos['telefono']=normalizar_telefono(datos.get('telefono',''))
+    for k in REDES:
+        try:datos[k]=normalizar_red(k,datos.get(k,''))
+        except ValueError:pass  # El error queda junto al campo, sin perder lo escrito.
     temas=list(dict.fromkeys(datos.get('tematicas') or []))
     datos['tematicas']=temas;datos['tematica']=temas[0] if temas else None
     if modo=='cliente':
@@ -74,6 +78,11 @@ def guardar(borrador,modo,repo,consentimiento,trampa,catalogo):
     if modo!='interno' and not consentimiento:raise ValueError('Debes autorizar el uso de tus datos para enviar la solicitud.')
     if trampa:raise ValueError('No pudimos confirmar el formulario. Revisa los datos e intenta nuevamente.')
     datos=datos_normalizados(borrador['values'],modo,repo)
+    redes=normalizar_redes(datos)
+    for k in REDES:datos.pop(k,None)
+    if redes and catalogo.get('version',1)<4:
+        raise ValueError('Estamos preparando el guardado de redes sociales. Conservamos tu borrador; vuelve a intentarlo más tarde.')
+    if catalogo.get('version',1)>=4:datos['redes_sociales']=redes
     if modo!='interno':
         from utils.canales import normalizar_canal
         if catalogo.get('version',1)>=3:

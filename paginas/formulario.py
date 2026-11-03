@@ -14,6 +14,7 @@ from servicios.solicitud_rapida import (cargar_catalogos,clientes_existentes,cue
 from utils import formulario_borrador as respaldo
 from utils.formulario_config import CAMPOS,PASOS,OPCIONES,BLOQUEADOS,campos_paso
 from utils.componentes import html_contenido_encabezado,titulo_seccion,preparar_celebracion,enlaces_publicos
+from servicios.redes_sociales import REDES,normalizar_red
 
 
 class Formulario:
@@ -42,11 +43,21 @@ class Formulario:
         if isinstance(valor,date):valor=valor.isoformat()
         if campo=='rut':valor=formatear_rut(valor)
         if campo=='telefono':valor=normalizar_telefono(valor)
+        if campo in REDES:
+            try:valor=normalizar_red(campo,valor)
+            except ValueError:pass
         self.v[campo]=valor
         self.b['ack']=dict(self.v);self.b['ack'][campo]=recibido
         if campo not in self.b['tocados']:self.b['tocados'].append(campo)
-        if campo in ('rut','telefono'):st.session_state[self.prefix+campo]=valor
+        if campo in ('rut','telefono',*REDES):st.session_state[self.prefix+campo]=valor
         if campo=='tematicas':self.v['tematica']=valor[0] if valor else None
+        if campo=='cliente' and self.modo=='cliente' and self.catalogo.get('version',1)>=4 and not any(k in self.b['tocados'] for k in REDES):
+            from servicios.redes_sociales import precargar_redes
+            try:
+                perfil=precargar_redes(self.repo,valor)
+                self.aplicar({k:(perfil.get('redes_sociales') or {}).get(k,'') for k in REDES})
+            except Exception:
+                pass  # No sustituir lo escrito si falla la consulta privada.
         if campo=='email':st.session_state.pop('solicitud_manual_correo',None);self.vincular()
         if campo=='cliente_id':st.session_state.solicitud_manual_correo=(self.v['email'] or '').strip().casefold()
         if campo=='origen':st.session_state.solicitud_ultimo_origen=valor
@@ -69,7 +80,10 @@ class Formulario:
 
     def usar_cliente(self,clientes):
         elegido=st.session_state.get('solicitud_busqueda')
-        if elegido:self.aplicar({k:clientes[elegido].get(k) or '' for k in ('cliente','contacto','rut','cargo','email','telefono')})
+        if elegido:
+            cliente=clientes[elegido]
+            self.aplicar({**{k:cliente.get(k) or '' for k in ('cliente','contacto','rut','cargo','email','telefono')},
+                          **{k:(cliente.get('redes_sociales') or {}).get(k,'') for k in REDES}})
 
     def errores(self,paso=None,completo=False):
         return servicio.errores(self.v,self.modo,self.repo,paso,completo=completo,catalogo=self.catalogo)
@@ -101,7 +115,8 @@ class Formulario:
             st.selectbox(c.etiqueta,[None,*opciones],format_func=lambda v:opciones.get(v,'Sin cuenta vinculada'),**args)
             if self.v[k] in opciones:st.info('Vinculada a la cuenta de '+opciones[self.v[k]])
         elif c.tipo=='origen':st.selectbox(c.etiqueta,OPCIONES[k],**args)
-        else:st.text_input(c.etiqueta,max_chars=c.limite,disabled=k in BLOQUEADOS[self.modo],**args)
+        else:st.text_input(c.etiqueta,max_chars=c.limite,disabled=k in BLOQUEADOS[self.modo],
+                           **({'icon':REDES[k][1]} if k in REDES else {}),**args)
         if k in self.b['tocados'] and k in self.errores():
             st.markdown(f'<p class="mfy-field-error" role="alert">{escape(self.errores()[k])}</p>',unsafe_allow_html=True)
 
@@ -164,6 +179,7 @@ class Formulario:
                 on_change=self.usar_cliente,args=(clientes,),help='Selecciona para precargar. Los datos siguen siendo editables.')
         if paso==1 and not self.interno:st.caption('Si consultas a título personal, puedes dejar Empresa en blanco.')
         for k,c in campos_paso(self.modo,paso).items():
+            if k in REDES:continue
             if c.tipo in ('consentimiento','confirmacion'):continue
             if k=='referido_por' and self.v['origen']!='Referido por colega':continue
             self.campo(k)
@@ -172,6 +188,14 @@ class Formulario:
                 if sugerencia:
                     st.caption('¿Quisiste decir '+sugerencia+'?')
                     st.button('Usar '+sugerencia,key='corregir_correo',on_click=self.aplicar,args=({'email':sugerencia},))
+        if paso==1:
+            with st.container(key='mfy_redes_empresa'):
+                st.subheader('Redes sociales de la empresa (opcional)')
+                st.caption('Nos ayuda a conocer mejor tu empresa')
+                for fila in (list(REDES)[:2],list(REDES)[2:4],list(REDES)[4:]):
+                    columnas=st.columns(2)
+                    for columna,k in zip(columnas,fila):
+                        with columna:self.campo(k)
         if paso==3:
             if self.interno:
                 propuestos,fuente=sugerencias(self.v['tematicas'][0] if self.v['tematicas'] else None,self.v['servicio'],self.casos,self.tarifas)

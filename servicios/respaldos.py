@@ -8,6 +8,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 TABLAS = ('mf_perfiles','mf_casos','mf_cotizaciones','mf_ventas','mf_tarifas',
           'mf_plantillas_programa','mf_eventos_caso','mf_configuracion',
           'mf_borradores_cotizacion','mf_envios_cotizacion','mf_mantenimiento')
+TABLAS_OPCIONALES=('mf_empresas_redes',)
 
 
 def zip_csv(snapshot):
@@ -16,14 +17,15 @@ def zip_csv(snapshot):
     Los valores originales se conservan: importar como texto, no abrir con
     ejecución de fórmulas en una planilla. No contiene Auth ni archivos Storage.
     """
-    if snapshot.get('format') != 1 or set(snapshot.get('tables', {})) != set(TABLAS):
+    presentes=set(snapshot.get('tables', {}))
+    if snapshot.get('format') != 1 or not set(TABLAS)<=presentes or not presentes<=set(TABLAS+TABLAS_OPCIONALES):
         raise ValueError('El respaldo está incompleto o su formato no es compatible.')
     manifest = dict(format=1, snapshot_at=snapshot['snapshot_at'], tables={},
         scope='Datos comerciales; no incluye Auth, Storage, esquema SQL ni secretos.',
         encoding='CSV UTF-8 BOM; JSON para objetos; null_cells identifica nulos; filas desde 0.')
     output = io.BytesIO()
     with ZipFile(output, 'w', ZIP_DEFLATED) as archive:
-        for nombre in TABLAS:
+        for nombre in (*TABLAS,*(t for t in TABLAS_OPCIONALES if t in presentes)):
             table = snapshot['tables'][nombre]
             columns = [c['name'] for c in table['columns']]
             if not columns or len(set(columns)) != len(columns):

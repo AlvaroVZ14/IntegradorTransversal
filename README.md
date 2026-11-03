@@ -168,3 +168,7 @@ Administración puede obtener enlaces por canal, textos y QR desde **GESTIÓN �
 ## Cuenta de cliente y documentos
 
 El cliente dispone de **Solicitar servicio** y **Mis documentos**. Sus documentos se vinculan por el correo confirmado del caso, también si crea su cuenta después. Activación SQL y pruebas: [guía de cuenta de cliente](docs/cuenta_cliente_documentos.md).
+
+## Redes de la empresa
+
+El formulario compartido admite cinco redes opcionales, reutilizables por empresa y correo. Se pueden consultar y editar en Datos y seguimiento y descargar en una ficha PDF administrativa. Activación SQL y pruebas: [guía de redes sociales](docs/redes_sociales_empresa.md).

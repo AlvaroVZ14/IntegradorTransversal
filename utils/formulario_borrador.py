@@ -20,6 +20,15 @@ def iniciar(modo,repo,catalogo):
         if not valores['servicio']:valores['servicio']=next(iter(catalogo['servicios']),None)
         if not valores['tematicas']:valores['tematicas']=[valores.get('tematica') or catalogo['tematicas'][0]] if catalogo['tematicas'] else []
         valores['origen']=st.session_state.get('solicitud_ultimo_origen',valores['origen'])
+        if modo=='cliente' and catalogo.get('version',1)>=4:
+            from servicios.redes_sociales import precargar_redes,REDES
+            try:
+                perfil=precargar_redes(repo,valores['cliente'])
+                if perfil:
+                    valores['cliente']=valores['cliente'] or perfil.get('empresa','')
+                    valores.update({k:v for k,v in (perfil.get('redes_sociales') or {}).items() if k in REDES})
+            except Exception:
+                st.caption('No pudimos precargar tus redes. Puedes completarlas a mano.')
         almacen[scope]=dict(id=(antiguo or {}).get('id',str(uuid4())),token=(antiguo or {}).get('token',str(uuid4())),step=1,values=valores,tocados=[],ack={},scope=scope)
     borrador=almacen[scope]
     if modo!='interno' and 'canal_captacion' not in borrador:
