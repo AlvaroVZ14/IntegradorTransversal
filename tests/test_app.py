@@ -22,13 +22,16 @@ tempfile.tempdir=str(ROOT/'tmp'/'tests')
 
 class Client:
     def __init__(self,owner):
-        self.user=SimpleNamespace(id='owner' if owner else 'client',email='test@example.cl')
+        self.user=SimpleNamespace(id='owner' if owner else 'client',email='test@example.cl',email_confirmed_at='2026-01-01T12:00:00Z')
         self.profile=dict(id=self.user.id,nombre='Camila Rojas' if owner else 'Valentina Soto',email=self.user.email,rol='admin' if owner else 'cliente')
         self.auth=SimpleNamespace(get_user=lambda:SimpleNamespace(user=self.user),sign_out=lambda *_:None)
     def table(self,_): return self
     def select(self,*_): return self
     def eq(self,*_): return self
     def execute(self): return SimpleNamespace(data=[self.profile])
+    def rpc(self,nombre,parametros):
+        if nombre=='mf_mis_documentos':return SimpleNamespace(execute=lambda:SimpleNamespace(data=[]))
+        raise AssertionError('RPC no simulada: '+nombre)
 
 
 class FakeRepository:
@@ -229,13 +232,13 @@ class AppTests(unittest.TestCase):
         app.session_state['auth_client']=repo.client
         # AppTest no actualiza su hash al seguir un switch_page del marco.
         # Las recargas reales y la raíz se verifican aparte en test_recarga.py.
-        app._page_hash=calc_hash('hoy' if owner else 'nueva-solicitud')
+        app._page_hash=calc_hash('hoy' if owner else 'solicitar-servicio')
         return app,repo
     def assert_clean(self,app):
         self.assertEqual([e.message for e in app.exception],[])
         self.assertEqual([e.value for e in app.error],[])
     def create_request(self,app):
-        ir_a(app,'Nueva solicitud')
+        ir_a(app,'Nueva solicitud' if app.session_state['_repo_actual'].is_owner else 'Solicitar servicio')
         interno=not by_label(app.text_input,'Nombre y apellido').disabled
         if interno:
             by_label(app.text_input,'Empresa o institución').set_value('Fundación Horizonte Norte')
@@ -279,7 +282,7 @@ class AppTests(unittest.TestCase):
         app.query_params['pagina']='Estado';app.session_state['pending_navigation']='Estado'
         app.run();self.assert_clean(app)
         self.assertEqual(paginas_registradas(app),TODAS_PAGINAS)
-        self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
+        self.assertEqual(app.session_state['navigation'],'Mis documentos')
         self.assertFalse(app.get('download_button'))
 
     def test_client_navigation_and_own_request(self):
@@ -313,6 +316,8 @@ class AppTests(unittest.TestCase):
         self.assert_clean(app)
         self.assertEqual(paginas_registradas(app),TODAS_PAGINAS)
         self.assertFalse(app.query_params)
+        self.assertEqual(app.session_state['navigation'],'Mis documentos')
+        ir_a(app,'Solicitar servicio')
         self.assertTrue(by_label(app.text_input,'Correo electrónico').disabled)
         self.assertTrue(by_label(app.text_input,'Nombre y apellido').disabled)
         self.assertFalse(any(x.label=='Vincular a una cuenta de cliente' for x in app.selectbox))
@@ -325,7 +330,7 @@ class AppTests(unittest.TestCase):
             app.query_params['pagina']=route
             app.session_state['pending_navigation']=route
             app.run()
-            self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
+            self.assertEqual(app.session_state['navigation'],'Mis documentos')
             self.assertFalse(app.dataframe)
 
     def test_client_success_cannot_open_listing_and_new_form_is_empty(self):
@@ -483,7 +488,7 @@ class AppTests(unittest.TestCase):
                 self.assertIn(role,content)
                 self.assertIn('Mente y Futuro · Sistema de gestión',content)
             self.assertEqual(paginas_registradas(app),TODAS_PAGINAS)
-            self.assertEqual(menu_visible(app),['Hoy','Nueva solicitud','Casos y cotizaciones','Compartir','Dashboard'] if owner else ['Nueva solicitud'])
+            self.assertEqual(menu_visible(app),['Hoy','Nueva solicitud','Casos y cotizaciones','Compartir','Dashboard'] if owner else ['Solicitar servicio','Mis documentos'])
             self.assertTrue(any(b.label=='Cerrar sesión' for b in app.button))
             self.assertFalse(app.sidebar.children)
             self.assertFalse(app.radio)
@@ -549,19 +554,19 @@ class AppTests(unittest.TestCase):
     def test_client_cannot_select_private_native_pages_even_with_admin_route_hash(self):
         admin,_=self.setup_app()
         admin.run()
-        private_hashes=[key for key,info in admin._registered_pages.items() if info['page_name']!='Nueva solicitud']
+        private_hashes=[key for key,info in admin._registered_pages.items() if info['page_name'] not in ('Inicio','Solicitar servicio','Mis documentos')]
         app,repo=self.setup_app(False)
         app.run()
         for page in ['Casos y cotizaciones','Dashboard']:
             ir_a(app,page)
             self.assert_clean(app)
-            self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
+            self.assertEqual(app.session_state['navigation'],'Mis documentos')
             self.assertFalse(app.dataframe)
         for page_hash in private_hashes:
             app._page_hash=page_hash  # Simula un enlace directo de otra cuenta.
             app.run()
             self.assert_clean(app)
-            self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
+            self.assertEqual(app.session_state['navigation'],'Mis documentos')
             self.assertEqual(paginas_registradas(app),TODAS_PAGINAS)
             self.assertFalse(app.metric)
 
@@ -578,7 +583,7 @@ class AppTests(unittest.TestCase):
         app.run()
         self.assert_clean(app)
         self.assertEqual(paginas_registradas(app),TODAS_PAGINAS)
-        self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
+        self.assertEqual(app.session_state['navigation'],'Mis documentos')
         repo.cases.assert_not_called()
         repo.sales.assert_not_called()
         repo.profiles.assert_not_called()

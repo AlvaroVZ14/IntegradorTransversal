@@ -1,6 +1,7 @@
 """El rol siempre procede de mf_perfiles, nunca de la URL o user_metadata."""
 ADMIN_PAGES = ("Hoy", "Nueva solicitud", "Casos y cotizaciones", "Compartir", "Dashboard")
-CLIENT_PAGE = "Nueva solicitud"
+CLIENT_PAGE = "Mis documentos"
+CLIENT_PAGES = ("Solicitar servicio", CLIENT_PAGE)
 
 
 def es_admin(profile):
@@ -13,7 +14,7 @@ def require_admin(repo):
 
 
 def allowed_pages(profile):
-    return list(ADMIN_PAGES) if es_admin(profile) else [CLIENT_PAGE]
+    return list(ADMIN_PAGES) if es_admin(profile) else list(CLIENT_PAGES)
 
 
 def guard_route(profile, route):
@@ -36,7 +37,7 @@ def proteger_pagina(titulo,admin=False):
             from mente_futuro.ui import login
             login()
         st.stop()
-    if admin and not es_admin(repo.profile):
-        st.session_state['pending_navigation']='Nueva solicitud'
-        st.switch_page('paginas/nueva_solicitud.py')
+    if not es_admin(repo.profile) and (admin or titulo not in CLIENT_PAGES):
+        st.session_state['pending_navigation']=CLIENT_PAGE
+        st.switch_page('paginas/mis_documentos.py')
     return repo

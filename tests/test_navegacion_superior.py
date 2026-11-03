@@ -18,7 +18,7 @@ class NavegacionSuperiorTests(TestCase):
 
     def test_registro_estable_y_enlaces_por_rol(self):
         for rol,esperadas in [('admin',['Hoy','Nueva solicitud','Casos y cotizaciones','Compartir','Dashboard']),
-                              ('cliente',['Nueva solicitud']),(None,[])]:
+                              ('cliente',['Solicitar servicio','Mis documentos']),(None,[])]:
             codigo="""
 import streamlit as st
 from utils.navegacion import crear_paginas
@@ -30,7 +30,7 @@ st.navigation(registro,position='hidden')
             app=AppTest.from_string(codigo).run()
             self.assertFalse(app.exception)
             self.assertEqual(app.session_state['visibles'],esperadas)
-            self.assertEqual(len(app.session_state['rutas']),7)
+            self.assertEqual(len(app.session_state['rutas']),9)
 
     def test_menu_superior_nativo_y_grupo_mas(self):
         # Simular crecimiento del menú sin agregar ninguna página a producción.

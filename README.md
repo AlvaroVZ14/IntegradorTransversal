@@ -33,7 +33,7 @@ La aplicación necesita estas tablas y funciones antes de utilizar cuentas o gua
 
    Verifica que el resultado corresponde a la persona correcta. Nunca asignes el rol basándote en datos de registro elegidos por el cliente. La dueña puede actualizar la página para ver sus permisos.
 
-6. Verifica con dos cuentas de cliente que solo puedan registrar una solicitud, sin consultar listados ni tablas internas. La dueña debe ver ambas solicitudes y el dashboard.
+6. Verifica con dos cuentas de cliente que puedan solicitar servicios y ver únicamente sus documentos visibles, sin consultar listados ni tablas internas de gestión. La dueña debe ver ambas solicitudes y el dashboard. Requiere también la migración de Mis documentos descrita al final.
 
 **Datos anteriores:** las tablas nuevas usan el prefijo `mf_` para preservar la tabla `casos` del prototipo sin adivinar su estructura. Los registros anteriores no se importan automáticamente. Antes de publicar, revisa esa tabla en SQL Editor y restringe su acceso anónimo si contiene datos reales. La aplicación nueva no la consulta. Para trasladar registros existentes, primero se necesita conocer sus columnas y vincular cada caso a su cliente correcto.
 
@@ -164,3 +164,7 @@ Referencias de implementación: [Supabase Auth para Python](https://supabase.com
 ## Compartir el formulario
 
 Administración puede obtener enlaces por canal, textos y QR desde **GESTIÓN → Compartir**. Activación SQL, URL pública y pruebas: [guía de Compartir](docs/compartir.md).
+
+## Cuenta de cliente y documentos
+
+El cliente dispone de **Solicitar servicio** y **Mis documentos**. Sus documentos se vinculan por el correo confirmado del caso, también si crea su cuenta después. Activación SQL y pruebas: [guía de cuenta de cliente](docs/cuenta_cliente_documentos.md).

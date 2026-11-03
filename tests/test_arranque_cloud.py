@@ -22,6 +22,7 @@ class ArranqueCloudTests(unittest.TestCase):
             with self.subTest(publico=publico):
                 app,_=self.app()
                 if publico:app.query_params['vista']='solicitud'
+                else:app.query_params['vista']='acceso'
                 anterior=ModuleType('utils.navegacion')
                 with patch.dict(sys.modules,{'utils.navegacion':anterior}):
                     app.run()
@@ -38,6 +39,6 @@ class ArranqueCloudTests(unittest.TestCase):
                     self.assertEqual(base.recargar(app,'dashboard'),0)
                     self.assertFalse(app.exception)
                     self.assertFalse(app.error)
-                    self.assertEqual(app.session_state['navigation'],'Dashboard' if rol=='admin' else 'Nueva solicitud')
+                    self.assertEqual(app.session_state['navigation'],'Dashboard' if rol=='admin' else 'Mis documentos')
                     self.assertEqual(base.recargar(app,'dashboard'),0)
                     self.assertFalse(app.exception)

@@ -30,8 +30,11 @@ class EntradasTests(TestCase):
     def limpio(self,app):
         self.assertFalse(app.exception);self.assertFalse(app.error)
 
-    def test_01_principal_anonimo_login_recarga_y_boton_sin_cuenta(self):
+    def test_01_principal_anonimo_formulario_recarga_y_acceso_login(self):
         app=self.app();self.assertEqual(recargar(app,''),0);self.limpio(app)
+        self.assertTrue(any(b.label=='Siguiente' for b in app.button))
+        self.assertEqual(recargar(app,''),0);self.limpio(app)
+        by_label(app.button,'Iniciar sesión').click().run()
         self.assertTrue(any(t.label=='Crear cuenta de cliente' for t in app.tabs))
         self.assertTrue(any(b.label=='Ingresar a mi espacio' for b in app.button))
         self.assertEqual(recargar(app,''),0);self.limpio(app)
@@ -40,7 +43,7 @@ class EntradasTests(TestCase):
         self.assertTrue(any(b.label=='Siguiente' for b in app.button));self.assertFalse(app.sidebar.children)
 
     def test_02_03_cookie_recupera_rol_real_en_sesion_nueva_y_recarga(self):
-        for rol,esperada in [('admin','Hoy'),('cliente','Nueva solicitud')]:
+        for rol,esperada in [('admin','Hoy'),('cliente','Solicitar servicio')]:
             app=self.app(rol);del app.session_state['auth_client']
             session=SimpleNamespace(refresh_token='rotado-ficticio-'+rol)
             self.repo.client.auth.refresh_session=Mock(return_value=SimpleNamespace(session=session))
@@ -75,12 +78,12 @@ class EntradasTests(TestCase):
             if rol:self.assertTrue(any(b.label=='Volver a la app' for b in app.button))
 
     def test_05_destinos_ejecutables_cliente_excluyen_admin_y_url_no_carga_datos(self):
-        self.assertEqual(list(rutas_para_perfil({'rol':'cliente'},{**PAGINAS,'Inicio':None})),['Nueva solicitud'])
+        self.assertEqual(list(rutas_para_perfil({'rol':'cliente'},{**PAGINAS,'Inicio':None})),['Solicitar servicio','Mis documentos'])
         for titulo in ('Hoy','Casos y cotizaciones','Compartir','Dashboard','Estado'):
             app=self.app('cliente')
             self.repo.live_snapshot=Mock(side_effect=AssertionError('No debe consultar datos administrativos'))
             self.assertEqual(recargar(app,PAGINAS[titulo][1]),0);self.limpio(app)
-            self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
+            self.assertEqual(app.session_state['navigation'],'Mis documentos')
             self.repo.live_snapshot.assert_not_called()
 
     def test_06_envio_publico_solo_rpc_anonima_no_crea_cuenta_ni_sesion(self):

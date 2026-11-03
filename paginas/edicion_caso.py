@@ -97,6 +97,7 @@ def editar_caso(repo,caso):
     def campo(nombre,label,tipo,**opciones):
         llave=_key(caso_id,nombre)
         valor=borrador["pendientes"].get(nombre,{}).get("valor",borrador["ultimo"].get(nombre))
+        if nombre=='correos_documentos':valor='\n'.join(valor or [])
         if nombre in ('rut','cargo'):valor=valor or ''
         if nombre in ("fecha_preferida","fecha_realizacion"):
             valor=date.fromisoformat(valor) if isinstance(valor,str) and valor else valor
@@ -161,9 +162,12 @@ def editar_caso(repo,caso):
         vinculado=borrador["pendientes"].get("cliente_id",{}).get("valor",caso.get("cliente_id"))
         if vinculado and vinculado not in perfiles:
             perfiles[vinculado]="Cuenta vinculada actual"
-        campo("cliente_id","Cuenta de cliente con acceso al caso","selectbox",options=[None,*perfiles],
+        campo("cliente_id","Cuenta de cliente vinculada al solicitante","selectbox",options=[None,*perfiles],
               format_func=lambda x:perfiles.get(x,"Sin cuenta vinculada"))
-        st.caption("La cuenta vinculada identifica al solicitante. Las ventas se registran en la pestaña Venta.")
+        st.caption("La cuenta vinculada identifica al solicitante. El acceso a documentos se comprueba con el correo confirmado del contacto y los correos adicionales.")
+        if 'correos_documentos' in caso:
+            campo('correos_documentos','Correos adicionales con acceso a los documentos (opcional)','text_area',max_chars=5200,
+                  help='Un correo por línea o separado por coma. Cada persona debe confirmar su cuenta. Quitar un correo revoca su acceso a nuevas descargas.')
         if borrador["pendientes"].get("estado",{}).get("valor")=="Cancelado":
             confirmar=st.checkbox("Confirmo anular el caso",key=f"confirmar_anular_{caso_id}")
             if st.button("Anular caso",key=f"anular_{caso_id}",disabled=not confirmar):

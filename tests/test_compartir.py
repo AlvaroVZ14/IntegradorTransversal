@@ -114,7 +114,12 @@ class CompartirUITests(TestCase):
             app=self.app(rol)
             self.assertFalse(app.exception);self.assertFalse(app.error);self.assertFalse(app.get('download_button'))
             self.assertNotIn('Compartir',menu_visible(app))
-            self.assertTrue(any(b.label==('Ingresar a mi espacio' if rol is None else 'Siguiente') for b in app.button))
+            if rol is None:
+                self.assertTrue(any(b.label=='Siguiente' for b in app.button))
+                self.assertTrue(any(b.label=='Iniciar sesión' for b in app.button))
+            else:
+                self.assertEqual(app.session_state['navigation'],'Mis documentos')
+                self.assertTrue(any('Cuando la socia comunitaria' in e.value for e in app.info))
 
     def test_canal_no_da_privilegios_y_se_conserva_en_los_pasos(self):
         app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=30)

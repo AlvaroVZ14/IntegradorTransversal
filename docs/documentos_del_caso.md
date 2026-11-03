@@ -2,6 +2,8 @@
 
 Prompt 20. Nueva pestaña administrativa Documentos en el detalle del caso, junto a Datos y seguimiento, Cotizaciones y Venta. La pantalla de cliente Mis documentos corresponde al Prompt 21 y no se incorpora aquí.
 
+Actualización posterior: [Cuenta de cliente y Mis documentos](cuenta_cliente_documentos.md) implementa el Prompt 21. Después de aplicar su migración, el cliente usa las RPC limitadas; SELECT directo de `mf_documentos` devuelve cero filas para impedir que reciba notas o rutas internas.
+
 ## Activación
 
 1. Ejecutar completo `supabase/migrations/202611020002_documentos_caso.sql` en Supabase → SQL Editor con la cuenta que administra el proyecto, después de las migraciones existentes. La migración crea el bucket privado y las políticas; no hace falta crearlo público ni cambiar permisos desde Storage.
@@ -89,7 +91,7 @@ La prueba SQL usa la instalación local de PGlite en `tmp/db-test/node_modules`,
 2. Subir una lista PDF sin datos reales, tipo Lista de asistencia y visibilidad Según el tipo. Debe aparecer disponible, con interruptor activado y nombre genérico. Si falla SMTP, el documento debe seguir ahí.
 3. Preparar descarga: el enlace debe descargar el archivo. Esperar más de diez minutos: el enlace anterior debe dejar de servir y Preparar descarga debe generar otro.
 4. En una ventana privada sin sesión, probar la ruta pública `/storage/v1/object/public/documentos-casos/<ruta>` y la ruta autenticada sin cabecera JWT: deben devolver error de autorización/no encontrado, sin archivo. No usar como prueba anónima un enlace firmado todavía válido: ese enlace sí concede acceso temporal.
-5. Con sesión de un cliente verificado, consultar `mf_documentos` y firmar su archivo visible: debe funcionar. Otro cliente o un cliente sin verificar no debe ver el documento ni poder firmarlo. Para inspeccionar la cuenta por interfaz se necesita el Prompt 21.
+5. Con Prompt 21 aplicado, entrar como cliente confirmado a Mis documentos: debe aparecer su archivo visible y poder descargarlo. SELECT directo de `mf_documentos` devuelve cero filas. Otro cliente o una cuenta sin confirmar no deben ver ni descargar ese archivo.
 6. Apagar visibilidad: la nueva consulta/firma del cliente debe quedar bloqueada. Una firma anterior puede durar el tiempo que le reste.
 7. Confirmar y eliminar: desaparece de la lista y el archivo se elimina de Storage. Reabrir no debe regenerar una cotización cuya copia se eliminó.
 8. Generar una cotización: debe aparecer en Documentos como Cotización, con visibilidad apagada y su descarga original conservada en Cotizaciones.

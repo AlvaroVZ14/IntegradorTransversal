@@ -108,7 +108,7 @@ class HoyUITests(unittest.TestCase):
         cliente,r=self.setup_app(False)
         r.all_quotes=Mock(side_effect=AssertionError('No debe consultar'))
         cliente.query_params['pagina']='Hoy';cliente.run()
-        self.assert_clean(cliente);self.assertEqual(cliente.session_state['navigation'],'Nueva solicitud')
+        self.assert_clean(cliente);self.assertEqual(cliente.session_state['navigation'],'Mis documentos')
         r.all_quotes.assert_not_called()
 
     def test_login_respects_requested_dashboard_url(self):

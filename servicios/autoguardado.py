@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 from utils.validaciones import validar_campo
 
 CAMPOS = ("cliente","contacto","email","telefono","servicio","tematica","estado",
-          "participantes","horas","modalidad","lugar","fecha_preferida","detalle","cliente_id","rut","cargo","origen","fecha_realizacion","dirigido_a","referido_por","tematicas")
+          "participantes","horas","modalidad","lugar","fecha_preferida","detalle","cliente_id","rut","cargo","origen","fecha_realizacion","dirigido_a","referido_por","tematicas","correos_documentos")
 
 
 def preparar(almacen, caso):
@@ -26,6 +26,9 @@ def editar(borrador, campo, valor):
         raise ValueError("Campo no editable.")
     if isinstance(valor, str):
         valor=valor.strip()
+    if campo=='correos_documentos' and isinstance(valor,str):
+        import re
+        valor=sorted(set(e.strip().lower() for e in re.split(r'[,;\n]',valor) if e.strip()))
     if campo in ("fecha_preferida","fecha_realizacion") and valor:
         valor=valor.isoformat() if hasattr(valor,"isoformat") else str(valor)
     base=borrador["pendientes"].get(campo,{}).get("base",borrador["ultimo"].get(campo))

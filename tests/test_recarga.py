@@ -62,8 +62,8 @@ class RecargaTests(unittest.TestCase):
                 self.assertFalse(app.exception);self.assertFalse(app.error)
                 self.assertEqual(list(p['page_name'] for p in app._registered_pages.values()),TODAS_PAGINAS)
                 if rol=='cliente':
-                    self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
-                    self.assertEqual(menu_visible(app),['Nueva solicitud'])
+                    self.assertEqual(app.session_state['navigation'],'Mis documentos')
+                    self.assertEqual(menu_visible(app),['Solicitar servicio','Mis documentos'])
                     self.assertFalse(app.dataframe);self.assertFalse(app.metric)
                 elif path in ['no-existe','ruta/anidada']:
                     self.assertEqual(app.session_state['navigation'],'Hoy')
@@ -88,8 +88,8 @@ class RecargaTests(unittest.TestCase):
         with patch('utils.sesion_cookie.cookie_inicial',return_value=cookie),patch('servicios.repositorio.public_client',return_value=repo.client):
             self.assertEqual(recargar(app,'dashboard'),0)
         self.assertIn('auth_client',app.session_state)
-        self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
-        self.assertTrue(any(b.label=='Siguiente' for b in app.button))
+        self.assertEqual(app.session_state['navigation'],'Mis documentos')
+        self.assertTrue(any('Cuando la socia' in b.value for b in app.info))
 
     def test_network_error_during_restore_keeps_loading_and_cookie(self):
         app,_=self.app()

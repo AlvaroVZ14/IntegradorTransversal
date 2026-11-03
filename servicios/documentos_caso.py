@@ -8,7 +8,7 @@ class DocumentosCaso:
     def __init__(self,repo):self.repo=repo;self.client=repo.client
 
     def listar(self,caso_id=None):
-        # Para Mis documentos: sin filtro, RLS devuelve solo los propios visibles.
+        self.repo.owner_only()
         consulta=self.client.table('mf_documentos').select('*')
         if caso_id:consulta=consulta.eq('caso_id',caso_id)
         filas=[];offset=0
@@ -19,6 +19,7 @@ class DocumentosCaso:
             offset+=500
 
     def buscar(self,documento_id):
+        self.repo.owner_only()
         filas=self.client.table('mf_documentos').select('*').eq('id',documento_id).execute().data
         return filas[0] if filas else None
 

@@ -89,5 +89,45 @@ try {
  assert.equal((await db.query('select estado_archivo from mf_documentos where id=$1',[d1])).rows[0].estado_archivo,'eliminado');
  for(const [i,tipo] of ['Lista de asistencia','Informe','Certificado','Material','Cotización','Otro'].entries())
   assert.equal((await meta(uuid(2,20+i),c1,tipo)).visible_cliente,i<4);
- console.log('Documentos SQL: privado, RLS admin/propio/ajeno/anónimo, correo verificado, permisos de Storage, visibilidad, aviso único, cotización privada y eliminación aprobados.');
+ console.log('Prompt 20: permisos y ciclo documental aprobados.');
+ await db.exec('reset role');
+ await db.exec(await readFile(new URL('../supabase/migrations/202611020003_mis_documentos.sql',import.meta.url),'utf8'));
+ const portal=async()=>(await db.query('select mf_mis_documentos() d')).rows[0].d;
+ const descriptor=async(id)=>(await db.query('select mf_documento_cliente($1) d',[id])).rows[0].d;
+ await rol(a);
+ let propios=await portal();
+ assert.equal(propios.length,3); // El correo confirmado prima sobre un cliente_id antiguo.
+ assert.ok(propios.some(c=>c.id===c2));
+ assert.deepEqual(Object.keys(propios[0]).sort(),['cliente','created_at','documentos','id','numero','servicio']);
+ const visibles=propios.flatMap(c=>c.documentos);
+ assert.deepEqual(visibles.map(d=>d.id).sort(),[d2,d3]);
+ assert.deepEqual(Object.keys(visibles[0]).sort(),['fecha_subida','id','nombre','tipo','tipo_mime']);
+ assert.deepEqual((await db.query('select * from mf_documentos')).rows,[]); // Ni notas ni rutas.
+ for(const tabla of ['mf_casos','mf_cotizaciones','mf_ventas','mf_tarifas'])
+  assert.deepEqual((await db.query('select * from '+tabla)).rows,[]);
+ assert.ok(await descriptor(d3));assert.equal(await descriptor(d4),null);
+ assert.equal(await descriptor(uuid(2,24)),null); // Cotización oculta.
+ assert.equal((await objetos()).length,2);
+ assert.deepEqual((await db.query("update mf_casos set correos_documentos=array['a@example.test'] where id=$1 returning id",[c4])).rows,[]);
+ await rol(b);assert.deepEqual(await portal(),[]);assert.equal(await descriptor(d2),null);
+ await rol(sinConfirmar);assert.deepEqual(await portal(),[]);assert.equal(await descriptor(d3),null);assert.deepEqual(await objetos(),[]);
+ await rol(admin);
+ await db.query("update mf_casos set correos_documentos=array[' B@Example.Test ','b@example.test'] where id=$1",[c3]);
+ assert.deepEqual((await db.query('select correos_documentos from mf_casos where id=$1',[c3])).rows[0].correos_documentos,['b@example.test']);
+ await denegado("update mf_casos set correos_documentos=array['no-es-correo'] where id=$1",[c3]);
+ await rol(b);assert.equal((await portal())[0].id,c3);assert.ok(await descriptor(d3));assert.equal(await descriptor(d2),null);
+ await rol(admin);await db.query("update mf_casos set correos_documentos='{}' where id=$1",[c3]);
+ await rol(b);assert.deepEqual(await portal(),[]);assert.equal(await descriptor(d3),null);assert.deepEqual(await objetos(),[]);
+ // Una cuenta creada DESPUÉS del caso recibe acceso al confirmar su correo.
+ await db.exec('reset role');
+ const tarde=uuid(0,6);
+ await db.query("insert into auth.users(id,email,email_confirmed_at) values($1,'FUTURO@example.test',null)",[tarde]);
+ await rol(tarde);assert.deepEqual(await portal(),[]);
+ await db.exec('reset role');await db.query('update auth.users set email_confirmed_at=now() where id=$1',[tarde]);
+ await rol(tarde);assert.equal((await portal())[0].id,c4);assert.ok(await descriptor(d4));
+ await db.exec('reset role');await db.query("update auth.users set email='nuevo@example.test' where id=$1",[tarde]);
+ await rol(tarde);assert.deepEqual(await portal(),[]);assert.equal(await descriptor(d4),null);
+ await rol(null,'anon');await denegado('select mf_mis_documentos()');await denegado('select mf_documento_cliente($1)',[d3]);assert.deepEqual(await objetos(),[]);
+ await rol(admin);assert.ok((await documentos()).length>0);assert.ok((await db.query('select * from mf_casos')).rows.length>0);
+ console.log('Prompt 21: dos clientes aislados, correo no confirmado, alta posterior, correo adicional y revocación, proyección sin datos internos, documentos visibles/ocultos y Administración aprobados.');
 } finally {await db.close();}

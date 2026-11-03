@@ -104,7 +104,7 @@ def _tarjeta_login():
                             st.info('Si la cuenta necesita confirmación, recibirás un correo. Revisa también Spam.')
                         except Exception:st.warning('No pudimos solicitar el correo. Espera unos minutos o envía tu solicitud sin crear cuenta.')
         with signup:
-            st.write('Tus datos quedan listos para tus próximas solicitudes.')
+            st.write('Tus datos quedan listos para tus próximas solicitudes y puedes descargar los documentos de tus servicios.')
             with st.form("signup"):
                 name = st.text_input("Nombre completo", max_chars=160)
                 new_email = st.text_input("Tu correo", max_chars=254)
@@ -135,6 +135,6 @@ def _tarjeta_login():
                     st.session_state['login_correo']=st.session_state['_signup_aviso']
                     st.session_state['acceso_pestana']='Iniciar sesión'
                 st.button('Iniciar sesión con este correo',on_click=ingresar,width='stretch')
-        st.markdown('<div class="note">Puedes enviar una solicitud sin cuenta. Crear una cuenta es opcional: deja tu nombre y correo listos para próximas solicitudes. Administración conserva su acceso de gestión.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="note">Puedes enviar una solicitud sin cuenta. Crear una cuenta es opcional: deja tus datos listos y accede a los documentos de los servicios registrados con tu correo confirmado. Administración conserva su acceso de gestión.</div>', unsafe_allow_html=True)
         if st.button('Enviar solicitud sin cuenta',type='tertiary',width='stretch'):
             st.query_params['vista']='solicitud';st.rerun()

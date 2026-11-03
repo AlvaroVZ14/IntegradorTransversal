@@ -17,6 +17,10 @@ def rut_valido(valor):
 
 
 def validar_campo(campo, valor):
+    if campo=='correos_documentos':
+        if not isinstance(valor,list) or len(valor)>20 or any(validar_campo('email',e) for e in valor):
+            return 'Revisa los correos adicionales. Puedes agregar hasta 20, separados por coma o en líneas distintas.'
+        return None
     if campo=='tematicas':
         if not isinstance(valor,list) or not 1<=len(valor)<=6 or len(set(valor))!=len(valor) or any(v not in TOPICS for v in valor):return 'Selecciona entre 1 y 6 temáticas válidas.'
         return None

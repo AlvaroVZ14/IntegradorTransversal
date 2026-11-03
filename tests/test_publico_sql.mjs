@@ -3,6 +3,7 @@ import {PGlite} from '../tmp/db-test/node_modules/@electric-sql/pglite/dist/inde
 import {readFile,readdir} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import assert from 'node:assert/strict';
+import {prepararStorage} from './storage_fixture.mjs';
 const db=new PGlite();
 const admin=randomUUID(),cliente=randomUUID();
 const as=async(id,role='authenticated')=>{await db.exec('reset role;set role '+role);await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);};
@@ -16,6 +17,7 @@ try{
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
  grant usage on schema public,auth to authenticated,anon,service_role;`);
  const dir=new URL('../supabase/migrations/',import.meta.url);
+ await prepararStorage(db);
  for(const name of (await readdir(dir)).filter(n=>n.endsWith('.sql')).sort())await db.exec(await readFile(new URL(name,dir),'utf8'));
  await db.query("insert into auth.users(id,email) values($1,'admin@example.test'),($2,'cuenta@example.test')",[admin,cliente]);
  await db.query("update mf_perfiles set rol='admin' where id=$1",[admin]);

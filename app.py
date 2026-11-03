@@ -93,6 +93,12 @@ def main():
     # sin exponer enlaces durante la restauración. Todas las URLs siguen registradas.
     actual,paginas=registrar_navegacion(repo.profile if repo and st.query_params.get('vista')!='acceso' else None)
     if repo is None or st.query_params.get('vista')=='acceso':
+        if repo is None and actual.title=='Inicio' and st.query_params.get('vista')!='acceso':
+            st.session_state['_vista_externa']=True
+            barra_publica()
+            from paginas.formulario import formulario
+            formulario(modo='publico')
+            return
         if actual.title!='Inicio':st.session_state['destino_tras_login']=actual.title
         login()
         if repo and st.button('Volver a la app',type='tertiary',key='login_volver_app'):
@@ -101,9 +107,10 @@ def main():
     st.session_state._repo_actual=repo
     destino=None
     if st.session_state.pop('inicio_tras_login',False):
-        destino=guard_route(repo.profile,st.session_state.pop('destino_tras_login',None))
-    if actual.title=='Inicio' or st.session_state.pop('ruta_inexistente',False):
-        destino=destino or ('Hoy' if repo.is_owner else 'Nueva solicitud')
+        destino=guard_route(repo.profile,st.session_state.pop('destino_tras_login',None) or ('Hoy' if repo.is_owner else 'Solicitar servicio'))
+    inexistente=st.session_state.pop('ruta_inexistente',False)
+    if actual.title=='Inicio' or inexistente:
+        destino=destino or ('Hoy' if repo.is_owner else 'Mis documentos' if inexistente else 'Solicitar servicio')
     st.query_params.pop('vista',None)
     if 'pagina' in st.query_params:destino=guard_route(repo.profile,st.query_params.pop('pagina'))
     if 'pending_navigation' in st.session_state:destino=guard_route(repo.profile,st.session_state.pop('pending_navigation'))

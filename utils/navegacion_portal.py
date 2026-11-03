@@ -16,6 +16,8 @@ PAGINAS = {
     "Compartir": ("paginas/compartir.py", "compartir", ":material/share:", "GESTIÓN"),
     "Dashboard": ("paginas/dashboard.py", "dashboard", ":material/dashboard:", "ANÁLISIS"),
     "Estado": ("paginas/estado.py", "estado", ":material/monitor_heart:", "MANTENIMIENTO"),
+    "Solicitar servicio": ("paginas/solicitar_servicio.py", "solicitar-servicio", ":material/add_circle:", "GESTIÓN"),
+    "Mis documentos": ("paginas/mis_documentos.py", "mis-documentos", ":material/description:", "GESTIÓN"),
 }
 
 
@@ -65,10 +67,6 @@ def barra_cuenta(repo,actual):
     from utils.componentes import identidad_usuario
     from mente_futuro.ui import logout
     st.markdown('<span class="mfy-top-nav-marker" aria-hidden="true"></span>',unsafe_allow_html=True)
-    # Streamlit oculta su menú si hay un solo destino visible.
-    if not repo.is_owner:
-        with st.container(key='mfy_top_single'):
-            st.page_link('paginas/nueva_solicitud.py',label='Nueva solicitud',icon=':material/add_circle:')
     with st.container(key='mfy_top_account'):
         with st.popover('Mi cuenta',icon=':material/account_circle:',help='Mi cuenta y cerrar sesión'):
             identidad_usuario(repo.profile.get('nombre'),repo.is_owner)

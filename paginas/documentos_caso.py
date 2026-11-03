@@ -30,7 +30,7 @@ def _visibilidad(documentos,doc):
 def _disponibilidad(destinatario):
     st.success('El cliente ya puede verlo en su cuenta' if destinatario.get('tiene_cuenta') else
                'El cliente lo verá cuando cree su cuenta con ese correo')
-    st.caption('Acceso a documentos preparado. La pantalla «Mis documentos» se incorpora en el siguiente paso del proyecto.')
+    st.caption('Los documentos visibles aparecen en «Mis documentos» al ingresar con el correo confirmado del caso.')
 
 
 def documentos_caso(repo,caso,cotizaciones):

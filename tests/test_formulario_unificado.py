@@ -57,7 +57,7 @@ class FormularioUITests(TestCase):
         self.assert_limpio(app);self.assertFalse(menu_visible(app));self.assertFalse(app.dataframe)
         self.assertFalse(any(s.label=='Origen de la solicitud' for s in app.selectbox))
         self.assertTrue(any(b.label=='Siguiente' for b in app.button))
-        by_label(app.button,'Acceso del equipo y cuentas').click().run()
+        by_label(app.button,'Iniciar sesión').click().run()
         self.assertEqual(app.query_params['vista'],'acceso')
         self.assertTrue(any(b.label=='Ingresar a mi espacio' for b in app.button))
 
@@ -65,7 +65,8 @@ class FormularioUITests(TestCase):
         admin,_=self.app('interno');admin.run();self.assertEqual(admin.session_state['navigation'],'Hoy')
         cliente,repo=self.app('cliente');cliente.query_params.update(modo='interno',vista='hoy',pagina='Dashboard');cliente.run()
         self.assert_limpio(cliente);self.assertFalse(cliente.sidebar.children)
-        self.assertEqual(cliente.session_state['navigation'],'Nueva solicitud')
+        self.assertEqual(cliente.session_state['navigation'],'Mis documentos')
+        cliente.switch_page(PAGINAS['Solicitar servicio'][0]).run()
         self.assertEqual(cliente.text_input(key='request_email').value,repo.user.email)
         self.assertTrue(cliente.text_input(key='request_contacto').disabled)
         from paginas.formulario import formulario
@@ -115,7 +116,7 @@ class FormularioUITests(TestCase):
             app.run()
             for label,valor in [('Nombre completo','Camila Ficticia'),('Tu correo','camila@example.test'),('Crea una contraseña','Clave-Ficticia-123!'),('Repite la contraseña','Clave-Ficticia-123!')]:by_label(app.text_input,label).set_value(valor)
             by_label(app.button,'Crear mi cuenta').click().run()
-        self.assert_limpio(app);self.assertEqual(app.session_state['navigation'],'Nueva solicitud')
+        self.assert_limpio(app);self.assertEqual(app.session_state['navigation'],'Solicitar servicio')
         self.assertTrue(app.text_input(key='request_email').disabled)
         self.assertEqual(repo.client.auth.sign_up.call_args.args[0]['options']['data'],{'nombre':'Camila Ficticia'})
 
@@ -144,4 +145,4 @@ class FormularioUITests(TestCase):
             self.assertNotIn('auth_client',app.session_state)
             by_label(app.button,'Confirmar correo y continuar').click().run()
         repo.client.auth.verify_otp.assert_called_once_with({'token_hash':token,'type':'email'})
-        self.assertEqual(app.session_state['navigation'],'Nueva solicitud');self.assert_limpio(app)
+        self.assertEqual(app.session_state['navigation'],'Solicitar servicio');self.assert_limpio(app)

@@ -298,7 +298,7 @@ class Formulario:
                 if correo:
                     from urllib.parse import quote
                     st.markdown(f'<p class="mfy-public-contact">También puedes escribirnos a <a href="mailto:{quote(correo,safe="@.")}">{escape(correo)}</a>.</p>',unsafe_allow_html=True)
-                if st.button('Volver a la app' if volver_a_app else 'Acceso del equipo y cuentas',key='ff_acceso',type='tertiary',width='stretch'):
+                if self.modo=='publico' and st.button('Volver a la app' if volver_a_app else 'Iniciar sesión',key='ff_acceso',type='tertiary',width='stretch'):
                     st.query_params.clear()
                     if volver_a_app:st.session_state.pending_navigation='Hoy'
                     else:st.query_params['vista']='acceso'
