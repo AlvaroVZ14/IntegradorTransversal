@@ -55,7 +55,8 @@ class Formulario:
             from servicios.redes_sociales import precargar_redes
             try:
                 perfil=precargar_redes(self.repo,valor)
-                self.aplicar({k:(perfil.get('redes_sociales') or {}).get(k,'') for k in REDES})
+                self.aplicar({**{k:(perfil.get('redes_sociales') or {}).get(k,'') for k in REDES},
+                    **{k:perfil[k] for k in ('telefono','cargo') if k in perfil and k not in self.b['tocados']}})
             except Exception:
                 pass  # No sustituir lo escrito si falla la consulta privada.
         if campo=='email':st.session_state.pop('solicitud_manual_correo',None);self.vincular()

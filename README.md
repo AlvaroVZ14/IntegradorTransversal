@@ -172,3 +172,5 @@ El cliente dispone de **Solicitar servicio** y **Mis documentos**. Sus documento
 ## Redes de la empresa
 
 El formulario compartido admite cinco redes opcionales, reutilizables por empresa y correo. Se pueden consultar y editar en Datos y seguimiento y descargar en una ficha PDF administrativa. Activación SQL y pruebas: [guía de redes sociales](docs/redes_sociales_empresa.md).
+
+Dentro de **Mis documentos → Mi perfil**, una cuenta cliente confirmada puede editar teléfono, cargo y redes. El menú conserva sus dos secciones. Activación y seguridad: [guía de Mi perfil](docs/mi_perfil_cliente.md).

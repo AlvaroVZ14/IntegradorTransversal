@@ -31,6 +31,9 @@ class Client:
     def execute(self): return SimpleNamespace(data=[self.profile])
     def rpc(self,nombre,parametros):
         if nombre=='mf_mis_documentos':return SimpleNamespace(execute=lambda:SimpleNamespace(data=[]))
+        if nombre=='mf_mi_perfil':return SimpleNamespace(execute=lambda:SimpleNamespace(data={
+            'id':None,'version':0,'empresa':'','nombre':self.profile['nombre'],'correo':self.user.email,
+            'telefono':'','cargo':'','redes_sociales':{}}))
         raise AssertionError('RPC no simulada: '+nombre)
 
 

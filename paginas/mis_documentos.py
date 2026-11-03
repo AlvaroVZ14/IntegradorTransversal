@@ -21,6 +21,8 @@ def mis_documentos(repo):
     documentos = MisDocumentos(repo)  # También valida rol al entrar directamente.
     encabezado_pagina('Mis documentos', 'Los documentos de tus servicios, en un solo lugar.',
                       'MENTE Y FUTURO · CLIENTES', ':material/description:')
+    from paginas.mi_perfil import mi_perfil
+    mi_perfil(repo)
     try:
         casos = documentos.listar()
     except Exception:

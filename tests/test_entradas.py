@@ -138,7 +138,7 @@ class EntradasTests(TestCase):
         from paginas.formulario import Formulario
         anterior={'id':'ficticio','values':{'cliente':'Antes'}}
         vigente={'id':'ficticio','values':{'cliente':'Antes'},'tocados':[]}
-        evento=SimpleNamespace(prefix='publico_',scope='publico:visitante',b=anterior)
+        evento=SimpleNamespace(prefix='publico_',scope='publico:visitante',b=anterior,modo='publico')
         estado={'publico_cliente':'Empresa ficticia','formularios':{'publico:visitante':vigente}}
         with patch('paginas.formulario.st.session_state',estado):Formulario.cambio(evento,'cliente')
         self.assertEqual(vigente['values']['cliente'],'Empresa ficticia')

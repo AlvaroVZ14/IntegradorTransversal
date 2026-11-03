@@ -23,10 +23,16 @@ def iniciar(modo,repo,catalogo):
         if modo=='cliente' and catalogo.get('version',1)>=4:
             from servicios.redes_sociales import precargar_redes,REDES
             try:
-                perfil=precargar_redes(repo,valores['cliente'])
+                if catalogo.get('version',1)>=5 and not valores['cliente']:
+                    from servicios.perfil_cliente import PerfilCliente
+                    perfil=PerfilCliente(repo).leer()
+                else:perfil=precargar_redes(repo,valores['cliente'])
                 if perfil:
                     valores['cliente']=valores['cliente'] or perfil.get('empresa','')
-                    valores.update({k:v for k,v in (perfil.get('redes_sociales') or {}).items() if k in REDES})
+                    heredados=(antiguo or {}).get('values',{})
+                    valores.update({k:v for k,v in (perfil.get('redes_sociales') or {}).items() if k in REDES and k not in heredados})
+                    for k in ('telefono','cargo'):
+                        if k not in heredados:valores[k]=perfil.get(k,valores[k])
             except Exception:
                 st.caption('No pudimos precargar tus redes. Puedes completarlas a mano.')
         almacen[scope]=dict(id=(antiguo or {}).get('id',str(uuid4())),token=(antiguo or {}).get('token',str(uuid4())),step=1,values=valores,tocados=[],ack={},scope=scope)
@@ -79,6 +85,8 @@ def recuperar(borrador,modo,repo,catalogo):
         if campo=='cliente_id' and valor is not None:
             try:UUID(valor)
             except (ValueError,TypeError,AttributeError):continue
+        if campo in TEXTOS and valor!=borrador['values'].get(campo) and campo not in borrador.setdefault('tocados',[]):
+            borrador['tocados'].append(campo)
         borrador['values'][campo]=valor
         st.session_state.pop(prefijo(modo)+campo,None)
     if 'tematicas' not in valores and valores.get('tematica') in catalogo['tematicas']:borrador['values']['tematicas']=[valores['tematica']]
