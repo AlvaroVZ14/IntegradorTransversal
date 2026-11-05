@@ -28,6 +28,13 @@ def escritura_confirmada(resultado):
     resultado=fila_rpc(resultado)
     from servicios.dashboard_cache import invalidar_dashboard
     invalidar_dashboard()
+    # La escritura ya se confirmó. La hoja jamás puede cambiar su resultado.
+    try:
+        repo=st.session_state.get('_repo_actual')
+        if repo is not None and repo.is_owner:
+            from servicios.hoja_sync import avisar
+            avisar(admin=True)
+    except Exception:pass
     return resultado
 
 

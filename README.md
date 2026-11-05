@@ -182,3 +182,7 @@ El Dashboard usa cuatro controles y períodos calendario con navegación Anterio
 La presentación simplificada muestra cuatro KPI y cinco gráficos. Para ver un ejemplo sin alterar ventas reales, activa **Ver datos de prueba** en el Dashboard de Administración. Detalles y archivos: [Dashboard simple](docs/dashboard_simple24.md).
 
 Hoy muestra tres tarjetas accionables y hasta cinco solicitudes por cotizar; el registro completo incorpora sus filtros y chips de estado clicables. Lista de bloques retirados y pruebas: [Hoy y Registro sin repeticiones](docs/hoy_registro25.md).
+
+## Copia automática para informes
+
+Administración puede ver **Mi cuenta → Estado de la hoja**. La integración con Google Sheets requiere activación una sola vez; no interfiere con el guardado de datos. SQL, secretos, pasos y límites: [guía de Google Sheets](docs/hoja_google38.md).

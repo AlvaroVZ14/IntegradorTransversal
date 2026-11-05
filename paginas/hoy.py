@@ -140,7 +140,11 @@ def _contenido(repo, pausado=False):
     nombre=((repo.profile.get('nombre') or '').split() or ['Administración'])[0]
     encabezado_hoy(f'{saludo(ahora.hour)}, {nombre}',fecha_larga(ahora),
         'Tienes asuntos por revisar' if any(tareas.values()) else 'Todo al día. Buen trabajo',nueva_solicitud)
-    for aviso in avisos_automatizacion(datos,ahora):st.warning(aviso)
+    from paginas.estado_hoja import estado_guardado
+    automatizaciones={**datos.get('automatizaciones',{})}
+    hoja=estado_guardado()
+    if hoja.get('integrada') or 'hoja_calculo' not in automatizaciones:automatizaciones['hoja_calculo']=hoja
+    for aviso in avisos_automatizacion({**datos,'automatizaciones':automatizaciones},ahora):st.warning(aviso)
     columnas=st.columns(3)
     tarjetas=[('Por cotizar','solicitudes',':material/request_quote:','Solicitudes sin cotización emitida; incluye solicitudes en revisión.'),
         ('Pagos por registrar','pagos',':material/payments:','Ventas no anuladas con pago pendiente o abono recibido, en casos abiertos.'),

@@ -1,0 +1,31 @@
+name: Sincronizar hoja de informes
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 7 * * *' # 03:17 o 04:17 en Chile; UTC evita depender de DST.
+permissions:
+  contents: read
+concurrency:
+  group: sincronizacion-hoja
+  cancel-in-progress: false
+jobs:
+  sincronizar:
+    if: vars.HOJA_SYNC_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      HOJA_SYNC_ENABLED: 'true'
+      HOJA_DATABASE_URL: ${{ secrets.HOJA_DATABASE_URL }}
+      HOJA_ID: ${{ secrets.HOJA_ID }}
+      HOJA_URL: ${{ secrets.HOJA_URL }}
+      HOJA_GOOGLE_JSON: ${{ secrets.HOJA_GOOGLE_JSON }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-hoja.txt
+      - run: python -m pip install -r requirements-hoja.txt
+      - name: Reconstruir copia y confirmar cola
+        run: python scripts/sync_completo.py

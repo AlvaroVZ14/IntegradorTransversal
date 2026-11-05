@@ -105,6 +105,9 @@ def main():
             st.query_params.pop('vista',None);st.rerun()
         return
     st.session_state._repo_actual=repo
+    if repo.is_owner:
+        from servicios.hoja_sync import avisar
+        avisar(admin=True)
     destino=None
     if st.session_state.pop('inicio_tras_login',False):
         destino=guard_route(repo.profile,st.session_state.pop('destino_tras_login',None) or ('Hoy' if repo.is_owner else 'Solicitar servicio'))

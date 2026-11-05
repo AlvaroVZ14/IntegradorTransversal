@@ -78,6 +78,8 @@ def barra_cuenta(repo,actual):
             if repo.is_owner:
                 control_modo_ligero()
                 st.page_link('paginas/guia_estilo.py',label='Guía de estilo',icon=':material/palette:')
+                from paginas.estado_hoja import panel_hoja
+                panel_hoja(repo)
             st.button('Cerrar sesión',key='logout',width='stretch',icon=':material/logout:',on_click=logout)
     # El menú nativo reduce enlaces a "N more"; el popover estándar da una
     # hamburguesa explícita, en español y con los mismos destinos autorizados.
