@@ -5,6 +5,11 @@ from xml.etree import ElementTree as ET
 import ipaddress
 import streamlit as st
 from utils.canales import CANALES, normalizar_canal
+from utils.canales import CODIGOS
+
+def url_publica_app():
+    from servicios import marca
+    return url_base(marca.URL_PUBLICA)
 
 TEXTOS = {
     'instagram_biografia': ('Instagram · Biografía', 'instagram'),
@@ -46,7 +51,24 @@ def url_detectada():
 def enlace_canal(base,canal):
     base=url_base(base)
     if not base:raise ValueError('Configura primero la URL pública de la aplicación.')
-    return base+'?'+urlencode({'vista':'solicitud','canal':normalizar_canal(canal)})
+    canonico=normalizar_canal(canal)
+    codigo=next((c for c,v in CODIGOS.items() if v==canonico),'directo')
+    return base+'?'+urlencode({'vista':'solicitud','c':codigo})
+
+def enlaces_compartir(base):
+    enlaces={c:enlace_canal(base,c) for c in ('whatsapp','instagram','facebook','linkedin','correo')}
+    return dict(whatsapp='https://wa.me/?'+urlencode({'text':'Cuéntanos qué necesita tu equipo: '+enlaces['whatsapp']}),
+                facebook='https://www.facebook.com/sharer/sharer.php?'+urlencode({'u':enlaces['facebook']}),
+                linkedin='https://www.linkedin.com/sharing/share-offsite/?'+urlencode({'url':enlaces['linkedin']}),
+                correo='mailto:?'+urlencode({'subject':'Una propuesta para tu equipo','body':'Cuéntanos qué necesitas: '+enlaces['correo']}),
+                instagram=enlaces['instagram'])
+
+def resumen_canales(casos,hoy):
+    from datetime import timedelta
+    from servicios.flujo_cotizaciones import fecha_local
+    from utils.canales import conteo_canales
+    return conteo_canales([c for c in casos if c.get('canal_captacion') and
+                           hoy-timedelta(days=89)<=fecha_local(c['created_at'])<=hoy])
 
 def texto_listo(plantilla,enlace):
     # No interpreta llaves de otros formatos ni evalúa expresiones.

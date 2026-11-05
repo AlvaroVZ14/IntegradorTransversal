@@ -47,9 +47,9 @@ class DashboardSimpleTests(TestCase):
         self.assertEqual([m.label for m in app.metric],['Total vendido','Venta promedio','Conversión','Pago pendiente'])
         self.assertTrue(all(m.help for m in app.metric))
         self.assertEqual(base.by_label(app.metric,'Total vendido').value,'$4.080.000')
-        self.assertEqual(len(app.get('plotly_chart')),5)
+        self.assertEqual(len(app.get('plotly_chart')),6)
         self.assertEqual([s.value for s in app.subheader],['Ventas por período','Ventas por temática',
-            'Ventas por tipo de servicio','Embudo de casos por estado','Origen de las solicitudes'])
+            'Ventas por tipo de servicio','Embudo de casos por estado','Origen de las solicitudes','Solicitudes por canal'])
         self.assertTrue(any('No son ventas reales' in i.value for i in app.info))
         self.assertFalse(any(e.label=='Reportes por período' for e in app.expander))
         base.by_label(app.toggle,'Ver datos de prueba').set_value(False).run();self.assert_clean(app)

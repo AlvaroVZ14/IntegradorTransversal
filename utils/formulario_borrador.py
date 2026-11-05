@@ -38,9 +38,9 @@ def iniciar(modo,repo,catalogo):
         almacen[scope]=dict(id=(antiguo or {}).get('id',str(uuid4())),token=(antiguo or {}).get('token',str(uuid4())),step=1,values=valores,tocados=[],ack={},scope=scope)
     borrador=almacen[scope]
     if modo!='interno' and 'canal_captacion' not in borrador:
-        from utils.canales import normalizar_canal
-        borrador['canal_captacion']=normalizar_canal(st.query_params.get('canal',st.session_state.get('_canal_entrada','directo')))
-        borrador['canal_explicito']='canal' in st.query_params or '_canal_entrada' in st.session_state
+        from utils.canales import canal_entrada,normalizar_canal
+        borrador['canal_captacion']=canal_entrada(st.query_params) if 'c' in st.query_params or 'canal' in st.query_params else normalizar_canal(st.session_state.get('_canal_entrada','directo'))
+        borrador['canal_explicito']='c' in st.query_params or 'canal' in st.query_params or '_canal_entrada' in st.session_state
     borrador['values']['tematica']=next(iter(borrador['values']['tematicas']),None)
     if modo=='cliente':
         borrador['values'].update(contacto=repo.profile.get('nombre',''),email=repo.user.email or '',cliente_id=None,origen='Formulario web',referido_por='')
@@ -65,7 +65,7 @@ def recuperar(borrador,modo,repo,catalogo):
     if entrada['id'] in st.session_state.get('formularios_descartados',[]):return
     valores=entrada.get('values')
     if not isinstance(valores,dict):return
-    if modo!='interno' and 'canal_captacion' in entrada:
+    if modo!='interno' and 'canal_captacion' in entrada and not borrador.get('canal_explicito'):
         from utils.canales import normalizar_canal
         borrador['canal_captacion']=normalizar_canal(entrada['canal_captacion'])
         borrador['canal_explicito']=entrada.get('canal_explicito') is True

@@ -9,7 +9,7 @@ from xml.etree import ElementTree as ET
 from PIL import Image
 from streamlit.testing.v1 import AppTest
 from servicios.compartir import url_base,resolver_url,es_local,enlace_canal,texto_listo,archivos_qr,TEXTOS
-from utils.canales import CANALES,normalizar_canal,conteo_canales
+from utils.canales import CANALES,CODIGOS,normalizar_canal,conteo_canales
 from servicios.dashboard import datos_dashboard
 from servicios.formulario import guardar
 from utils.formulario_config import valores_iniciales
@@ -29,9 +29,9 @@ class CompartirTests(TestCase):
         self.assertTrue(es_local('http://127.0.0.1:8501/'));self.assertTrue(es_local('http://localhost:8501/'))
         for canal in CANALES:
             link=enlace_canal(BASE,canal)
-            self.assertEqual(parse_qs(urlsplit(link).query),{'vista':['solicitud'],'canal':[canal]})
+            self.assertEqual(parse_qs(urlsplit(link).query),{'vista':['solicitud'],'c':[next(k for k,v in CODIGOS.items() if v==canal)]})
             self.assertNotIn('@',link)
-        self.assertEqual(normalizar_canal('hola'),'otro');self.assertEqual(normalizar_canal(None),'otro')
+        self.assertEqual(normalizar_canal('hola'),'directo');self.assertEqual(normalizar_canal(None),'directo')
         self.assertEqual(texto_listo('Texto {enlace} {otro}',BASE),'Texto '+BASE+' {otro}')
 
     def test_png_svg_alta_resolucion_mismos_modulos_y_colores(self):
@@ -51,7 +51,7 @@ class CompartirTests(TestCase):
         for canal in CANALES:
             enlace=enlace_canal(BASE,canal);png,_=archivos_qr(enlace)
             im=Image.open(BytesIO(png))
-            for imagen in (im,im.resize((280,280),Image.Resampling.NEAREST)):
+            for imagen in (im,im.resize((160,160),Image.Resampling.NEAREST)):
                 resultado=zxingcpp.read_barcode(imagen)
                 self.assertIsNotNone(resultado,canal);self.assertEqual(resultado.text,enlace)
 
@@ -73,13 +73,14 @@ class CompartirTests(TestCase):
         v=dict(valores_iniciales(),cliente='Empresa ficticia',contacto='Camila Ficticia',email='camila@example.test',servicio=SERVICES[0],tematicas=[TOPICS[0]])
         b=dict(id='ficticio',token='ficticio',values=v,canal_captacion='hola',canal_explicito=True)
         guardar(b,'cliente',repo,True,'',CAT)
-        self.assertEqual(repo.case_rows[0]['canal_captacion'],'otro')
+        self.assertEqual(repo.case_rows[0]['canal_captacion'],'directo')
         admin=FakeRepository();guardar(b,'interno',admin,False,'',CAT)
         self.assertNotIn('canal_captacion',admin.case_rows[0])
         with self.assertRaises(ValueError):guardar(b,'cliente',repo,True,'',{**CAT,'version':2})
 
 class CompartirUITests(TestCase):
     def setUp(self):
+        p=patch('servicios.marca.URL_PUBLICA',BASE);p.start();self.addCleanup(p.stop)
         def elevar(error,*_):raise error
         p=patch('mente_futuro.ui.show_error',side_effect=elevar);p.start();self.addCleanup(p.stop)
         self.repo=FakeRepository(True)
@@ -99,7 +100,7 @@ class CompartirUITests(TestCase):
     def test_admin_ve_seis_canales_qr_textos_y_los_guarda_sin_perder_configuracion(self):
         app=self.app('admin');self.assertFalse(app.exception);self.assertFalse(app.error)
         self.assertIn('Compartir',menu_visible(app));self.assertEqual(app.session_state['navigation'],'Compartir')
-        self.assertEqual(len([c for c in app.code if '?vista=solicitud&canal=' in c.value]),11)
+        self.assertEqual(len([c for c in app.code if '?vista=solicitud&c=' in c.value]),1)
         self.assertEqual(len(app.get('download_button')),2)
         # AppTest conserva el hash de la pantalla de inicio: fijarlo como el navegador.
         app.switch_page('paginas/compartir.py')

@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 NOMBRE='Mente y Futuro'
 SITIO_WEB='https://menteyfuturo.cl'
 CORREO_CONTACTO='contacto@menteyfuturo.cl'
+URL_PUBLICA='https://integradortransversal-i7hgei4jxjjiwanie5rexd.streamlit.app/'
 REDES={
     'instagram':'https://www.instagram.com/menteyfuturospa/',
     'facebook':'https://www.facebook.com/menteyfuturo',

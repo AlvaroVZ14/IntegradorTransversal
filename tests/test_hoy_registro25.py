@@ -100,9 +100,9 @@ class HoyRegistroTests(TestCase):
 
     def test_compartir_compacto_reutiliza_url_sin_otra_consulta(self):
         app,repo=self.preparar();repo.settings_row['datos']['url_publica']='https://portal.example.test/'
-        with patch('paginas.compartir.copiar_mensaje') as copiar:
+        with patch('servicios.marca.URL_PUBLICA','https://portal.example.test/'),patch('paginas.compartir.copiar_mensaje') as copiar:
             app.run();self.assert_clean(app)
             copiar.assert_called_once()
-            self.assertEqual(copiar.call_args.args[0],'https://portal.example.test/?vista=solicitud&canal=directo')
+            self.assertEqual(copiar.call_args.args[0],'https://portal.example.test/?vista=solicitud&c=directo')
             self.assertEqual(copiar.call_args.kwargs['etiqueta'],'Copiar enlace')
             self.assertTrue(any(p.label=='Más opciones' for p in app.get('page_link')))

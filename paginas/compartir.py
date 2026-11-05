@@ -1,21 +1,21 @@
 """Herramientas de publicación. Copiar y abrir no envían solicitudes."""
 import streamlit as st
 from utils.permisos import require_admin
-from utils.componentes import encabezado_pagina
 from utils.canales import CANALES
 from utils.mensaje_listo import copiar_mensaje
-from servicios.compartir import resolver_url,url_detectada,es_local,enlace_canal,archivos_qr,TEXTOS,texto_listo
+from servicios.compartir import es_local,enlace_canal,archivos_qr,TEXTOS,texto_listo
 
 def abrir_opciones_portal():
     st.session_state.abrir_opciones_portal=True
     st.session_state.pending_navigation='Casos y cotizaciones'
 
 def tarjeta_compartir(datos):
-    """Reutiliza la configuración de la lectura de Hoy, sin otra consulta."""
+    """Usa el enlace central del formulario, sin añadir consultas a Hoy."""
     with st.container(key='mfy_form_compartir_hoy'):
         texto,copiar,acceso=st.columns([2,1.2,1])
         texto.markdown('**↗ Comparte tu formulario**')
-        base,detectada=resolver_url(datos,url_detectada())
+        from servicios.compartir import url_publica_app
+        base=url_publica_app()
         if base and not es_local(base):
             with copiar:
                 copiar_mensaje(enlace_canal(base,'directo'),'hoy_copiar_formulario',etiqueta='Copiar enlace',confirmacion='Enlace copiado')
@@ -27,77 +27,88 @@ def tarjeta_compartir(datos):
 
 def compartir_page(repo):
     require_admin(repo)
-    encabezado_pagina('Tu formulario, donde te necesiten','Enlaces, códigos QR y mensajes listos para compartir.','COMPARTIR',':material/share:')
+    from servicios.compartir import url_publica_app,enlaces_compartir,resumen_canales
+    from servicios.en_vivo import cargar
+    from mente_futuro.domain import today
+    from ui.tema import ESTILOS_COMPARTIR
+    st.markdown(ESTILOS_COMPARTIR,unsafe_allow_html=True)
     try:row=repo.sharing_settings()
-    except Exception as error:
-        if getattr(error,'code','')=='PGRST202':
-            st.info('Para activar Compartir, ejecuta 202610240002_compartir_canales.sql después del SQL del formulario unificado.')
-        else:st.warning('No pudimos cargar tus enlaces. Revisa la conexión y vuelve a intentarlo.')
+    except Exception:
+        st.warning('No pudimos cargar los textos guardados. Revisa la conexión y vuelve a intentarlo.')
         return
-    datos=row['datos'];base,detectada=resolver_url(datos,url_detectada())
-    if detectada:
-        st.info('La URL pública aún no está configurada. Intentamos detectar la dirección de esta aplicación; revísala antes de compartirla.')
-        if base:
-            st.code(base,language=None,wrap_lines=True)
-            if es_local(base):st.warning('Esta dirección es local o privada: no funcionará para tus clientes. Configura la dirección publicada.')
-            elif st.button('Guardar URL detectada',type='primary'):
-                try:
-                    repo.save_quote_settings({**datos,'url_publica':base},row['version'])
-                    st.success('URL pública guardada.');st.rerun()
-                except Exception:st.warning('No pudimos guardar la URL. Conservamos tus datos; vuelve a intentarlo.')
-    st.button('Editar enlaces y contacto',on_click=abrir_opciones_portal,icon=':material/settings:')
+    datos=row['datos'];base=url_publica_app()
     if not base or es_local(base):
-        st.info('Completa una URL pública válida en Configuración para preparar los enlaces y QR.')
+        st.warning('El enlace publicado aún no está disponible. Avísanos para corregirlo antes de compartir.')
         return
-    st.caption('Los enlaces solo identifican el canal. No contienen datos personales ni conceden acceso a la administración.')
-    canales=list(CANALES)
-    for offset in range(0,len(canales),2):
-        for columna,canal in zip(st.columns(2),canales[offset:offset+2]):
-            label,icono,ayuda=CANALES[canal];enlace=enlace_canal(base,canal)
-            with columna,st.container(key='mfy_form_compartir_'+canal):
-                st.subheader(label,help=ayuda)
-                st.caption(ayuda)
-                st.code(enlace,language=None,wrap_lines=True)
-                copiar_mensaje(enlace,'compartir_link_'+canal,confirmacion='Enlace copiado ✓')
-                st.link_button('Abrir',enlace,icon=':material/open_in_new:',width='stretch')
-    with st.container(key='mfy_form_compartir_descargas'):
-        st.subheader('Un QR para cada canal')
-        canal=st.selectbox('Canal del QR',canales,index=canales.index('qr'),format_func=lambda c:CANALES[c][0],key='compartir_qr_canal')
-        enlace=enlace_canal(base,canal)
+    with st.container(key='mfy_form_compartir_compacto'):
+        st.subheader('Comparte tu formulario')
+        contenido,qr_col=st.columns([3,1])
+        with contenido:
+            enlace=enlace_canal(base,'directo')
+            st.code(enlace,language=None,wrap_lines=True)
+            with st.container(key='mfy_share_copy'):
+                copiar_mensaje(enlace,'compartir_link_directo',etiqueta='Copiar enlace',confirmacion='Enlace copiado')
+            st.link_button('Abrir formulario',enlace,icon=':material/open_in_new:')
+        with qr_col:
+            canal=st.session_state.get('compartir_qr_canal','qr')
+            if canal not in CANALES:canal='qr'
+            qr_canal=canal
+            try:
+                png,svg=archivos_qr(enlace_canal(base,canal))
+                st.image(png,width=160)
+                st.download_button('Descargar QR (PNG)',png,f'formulario-{canal}.png','image/png',on_click='ignore')
+            except Exception:
+                png=svg=None
+                st.warning('No pudimos preparar el QR. Puedes copiar el enlace mientras reintentas.')
+        destinos=enlaces_compartir(base)
+        columnas=st.columns(5)
+        for columna,canal in zip(columnas,('whatsapp','instagram','facebook','linkedin','correo')):
+            label,icono,_=CANALES[canal]
+            with columna:
+                if canal=='instagram':
+                    copiar_mensaje(destinos[canal],'compartir_link_instagram',etiqueta='◎ Instagram',confirmacion='Enlace copiado')
+                else:st.link_button(label,destinos[canal],icon=icono,width='stretch')
+        st.caption('Instagram: pégalo en la biografía o en una historia.')
         try:
-            png,svg=archivos_qr(enlace)
-            st.image(png,width=280,caption='QR de '+CANALES[canal][0])
-            st.caption('Azul marino sobre blanco, margen de seguridad y corrección alta. El enlace es el mismo del canal seleccionado.')
-            a,b=st.columns(2)
-            a.download_button('Descargar PNG · alta resolución',png,f'formulario-{canal}.png','image/png',width='stretch',on_click='ignore')
-            b.download_button('Descargar SVG · vectorial',svg,f'formulario-{canal}.svg','image/svg+xml',width='stretch',on_click='ignore')
-        except Exception:st.warning('No pudimos generar el QR. Comprueba que el enlace sea válido y que estén instaladas las dependencias.')
-    st.subheader('Textos listos para publicar')
-    st.caption('Ajusta el tono y conserva {enlace}: se reemplaza por el enlace del canal al copiar. Editar y copiar no publica nada.')
+            lectura=cargar(repo,'casos')
+            conteos=resumen_canales(lectura.get('datos',{}).get('casos',[]),today())
+            if conteos:
+                st.caption('Últimos 90 días: '+', '.join(f'{k} {v}' for k,v in sorted(conteos.items(),key=lambda x:x[1],reverse=True))+' · [Ver Dashboard]('+base+'dashboard)')
+        except Exception:
+            pass  # El resumen no bloquea compartir; no se inventan conteos.
     plantillas=datos.get('compartir') if isinstance(datos.get('compartir'),dict) else {}
     editados={}
-    for tab,(key,(label,canal)) in zip(st.tabs([v[0] for v in TEXTOS.values()]),TEXTOS.items()):
-        with tab:
-            editados[key]=st.text_area('Texto de '+label,value=plantillas.get(key,''),max_chars=3000,height=150,key='compartir_texto_'+key)
-            texto=texto_listo(editados[key],enlace_canal(base,canal))
-            if '{enlace}' not in editados[key]:st.caption('Agrega {enlace} donde quieras incluir la dirección del formulario.')
-            st.code(texto,language=None,wrap_lines=True)
-            copiar_mensaje(texto,'compartir_copiar_texto_'+key,etiqueta='Copiar texto',confirmacion='Texto copiado ✓')
-    if st.button('Guardar textos para compartir',type='primary'):
-        if any(not t.strip() or '{enlace}' not in t for t in editados.values()):
-            st.warning('Completa todos los textos e incluye {enlace} en cada uno antes de guardar.')
-        else:
-            try:
-                repo.save_quote_settings({**datos,'compartir':{**plantillas,**editados}},row['version'])
-                st.success('Textos guardados.');st.rerun()
-            except Exception:st.warning('No pudimos guardar los textos. Conservamos lo escrito; vuelve a intentarlo.')
-    with st.container(key='mfy_form_compartir_como'):
-        st.subheader('Cómo publicarlo')
-        st.write('1. Elige el canal y copia su enlace o descarga su QR.')
-        st.write('2. Ajusta y copia el texto de ese canal.')
-        st.write('3. Pégalo en tu perfil, sitio o mensaje y publica cuando quieras.')
-        st.write('4. Abre el enlace en una ventana privada y revisa que aparezca el formulario.')
-        st.caption('El canal representa el enlace utilizado, no una verificación de la red de origen. Si reenvían el enlace de Instagram por WhatsApp, seguirá indicando Instagram.')
+    principales=('instagram_biografia','facebook','whatsapp')
+    with st.expander('Textos listos'):
+        st.caption('Edita el texto; {enlace} se reemplaza por el enlace del canal al copiar.')
+        tabs=st.tabs([TEXTOS[k][0] for k in principales])
+        for tab,key in zip(tabs,principales):
+            label,canal=TEXTOS[key]
+            with tab:
+                editados[key]=st.text_area('Texto de '+label,value=plantillas.get(key) or 'Cuéntanos qué necesita tu equipo y te preparamos una propuesta a tu medida. {enlace}',max_chars=3000,height=85,key='compartir_texto_'+key)
+                texto=texto_listo(editados[key],enlace_canal(base,canal))
+                copiar_mensaje(texto,'compartir_copiar_texto_'+key,etiqueta='Copiar texto',confirmacion='Texto copiado')
+        with st.expander('Más textos y opciones'):
+            st.selectbox('Canal del QR',list(CANALES),index=list(CANALES).index('qr'),
+                         format_func=lambda c:CANALES[c][0],key='compartir_qr_canal')
+            for key in TEXTOS:
+                if key in principales:continue
+                label,canal=TEXTOS[key]
+                editados[key]=st.text_area('Texto de '+label,value=plantillas.get(key) or 'Cuéntanos qué necesitas. {enlace}',max_chars=3000,height=85,key='compartir_texto_'+key)
+                copiar_mensaje(texto_listo(editados[key],enlace_canal(base,canal)),'compartir_copiar_texto_'+key,etiqueta='Copiar texto')
+            if svg:st.download_button('Descargar SVG · vectorial',svg,f'formulario-{qr_canal}.svg','image/svg+xml',on_click='ignore')
+            st.button('Editar enlaces y contacto',on_click=abrir_opciones_portal,icon=':material/settings:')
+        if st.button('Guardar textos para compartir',type='primary'):
+            if any(not t.strip() or '{enlace}' not in t for t in editados.values()):
+                st.warning('Incluye {enlace} en cada texto antes de guardar.')
+            else:
+                try:
+                    repo.save_quote_settings({**datos,'compartir':{**plantillas,**editados}},row['version'])
+                    st.success('Textos guardados.');st.rerun()
+                except Exception:st.warning('No pudimos guardar. Conservamos tus textos para reintentar.')
+    with st.expander('Cómo publicarlo'):
+        st.write('1. Copia el enlace o descarga el QR. 2. Elige el canal. 3. Pega el texto y publica. 4. Abre el formulario en una ventana privada.')
+        st.caption('El canal identifica el enlace utilizado, no cuenta visitas. Si reenvían un enlace de Instagram por WhatsApp, seguirá indicando Instagram.')
 
 if __name__=='__main__':
     from utils.permisos import proteger_pagina

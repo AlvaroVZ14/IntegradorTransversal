@@ -33,5 +33,5 @@ class DashboardSimplificadoTests(unittest.TestCase):
             self.assertEqual(base.fila_indicador(app,'Cantidad de ventas')['Variación'],'Sin datos del período anterior')
             self.assertFalse(any('6 ventas registradas' in c.value for c in app.caption))
             self.assertIn('ventas no anuladas',base.by_label(app.metric,'Total vendido').help)
-            self.assertEqual(len(app.get('plotly_chart')),5)
+            self.assertEqual(len(app.get('plotly_chart')),6)
             self.assertTrue(any(b.label=='Exportar resumen por período' for b in app.get('download_button')))

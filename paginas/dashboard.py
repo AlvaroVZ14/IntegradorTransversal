@@ -184,10 +184,16 @@ def _contenido_dashboard(repo, filtros_activos, demo=False):
             fuera = data['states'][~data['states'].estado.isin(['Solicitud','Cotizada','Aceptada','En seguimiento','Cerrada'])]
             if not fuera.empty:
                 st.markdown('<div class="mfy-state-key">'+''.join(badge_estado(r.estado,r.Casos) for r in fuera.itertuples())+'</div>', unsafe_allow_html=True)
-    a, _ = st.columns(2)
+    a, b = st.columns(2)
     with a:
         with tarjeta_grafico('Origen de las solicitudes', 'Cómo llegaron las solicitudes recibidas en el rango elegido.', 'origen'):
             _mostrar(origenes(solicitudes, reduced), 'plot_origen')
+    from utils.canales import conteo_canales
+    canales=conteo_canales(solicitudes)
+    if canales:
+        with b:
+            with tarjeta_grafico('Solicitudes por canal', 'Canal del enlace de las solicitudes recibidas en el rango elegido.', 'canales'):
+                _mostrar(barras_horizontales(list(canales),list(canales.values()),reduced_motion=reduced),'plot_canales')
     with st.expander('Ver detalle de indicadores'):
         # Solo conteos adicionales: no repite los cuatro KPI de arriba.
         tabla_registros(pd.DataFrame([

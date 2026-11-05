@@ -22,16 +22,16 @@ def main():
     desconocida=resolver_ruta_desconocida()
     # st.switch_page limpia los parámetros de URL: retener solo la atribución,
     # sin usarla para decidir sesión, rol o destino.
-    if 'canal' in st.query_params:
-        from utils.canales import normalizar_canal
-        st.session_state['_canal_entrada']=normalizar_canal(st.query_params['canal'])
+    if 'canal' in st.query_params or 'c' in st.query_params:
+        from utils.canales import canal_entrada
+        st.session_state['_canal_entrada']=canal_entrada(st.query_params)
     if desconocida:st.session_state['ruta_inexistente']=True
     from servicios.acceso import confirmar_enlace
     if confirmar_enlace():
         registrar_navegacion()
         return
     cookie=cookie_inicial()
-    if st.query_params.get('vista')=='solicitud':
+    if st.query_params.get('vista')=='solicitud' or 'c' in st.query_params:
         # Entrada anónima independiente: nunca restaura ni utiliza Auth para
         # consultar/guardar. Una cuenta abierta no convierte este formulario en interno.
         st.session_state['_vista_externa']=True
@@ -118,7 +118,7 @@ def main():
     autorizadas=rutas_para_perfil(repo.profile,paginas)
     if not repo.is_owner:
         for key in list(st.query_params):
-            if key not in ('vista','canal'):del st.query_params[key]
+            if key not in ('vista','canal','c'):del st.query_params[key]
         if 'canal' in st.query_params:
             from utils.canales import normalizar_canal
             canal=normalizar_canal(st.query_params['canal'])

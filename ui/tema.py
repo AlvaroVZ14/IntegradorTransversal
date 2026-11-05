@@ -196,6 +196,14 @@ def _css_estados():
 
 ESTILOS_BASE='<style>'+_compactar(CSS_PORTAL+_css_estados())+CSS_VIDRIO+'</style>'
 
+ESTILOS_COMPARTIR='<style>'+_compactar('''
+.st-key-mfy_form_compartir_compacto{padding:16px!important}
+.st-key-mfy_form_compartir_compacto h3{margin:0 0 8px;font-size:22px}
+.st-key-mfy_form_compartir_compacto [data-testid=stImage]{max-width:160px}
+.st-key-mfy_share_copy{max-width:240px}
+@media(max-width:767px){.st-key-mfy_share_copy{max-width:100%}.st-key-mfy_form_compartir_compacto{padding:12px!important}}
+''')+'</style>'
+
 # Solo el formulario compartido. Clases propias, sin selectores internos.
 ESTILOS_REDES_MARCA='<style>'+_compactar('''
 .mfy-brand-networks{max-width:720px;margin:20px auto;box-sizing:border-box;color:#0B2545}
