@@ -204,7 +204,7 @@ TODAS_PAGINAS=['Inicio',*PAGINAS]
 
 def menu_visible(app):
     # El menú móvil estándar tiene los mismos destinos que el menú superior.
-    return list(dict.fromkeys(x.label for x in app.get('page_link') if x.label in PAGINAS))
+    return list(dict.fromkeys(x.label for x in app.get('page_link') if x.label in PAGINAS and x.label not in ('Estado','Guía de estilo')))
 
 
 def paso(app,n):

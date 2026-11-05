@@ -16,6 +16,7 @@ PAGINAS = {
     "Compartir": ("paginas/compartir.py", "compartir", ":material/share:", "GESTIÓN"),
     "Dashboard": ("paginas/dashboard.py", "dashboard", ":material/dashboard:", "ANÁLISIS"),
     "Estado": ("paginas/estado.py", "estado", ":material/monitor_heart:", "MANTENIMIENTO"),
+    "Guía de estilo": ("paginas/guia_estilo.py", "guia-estilo", ":material/palette:", "MANTENIMIENTO"),
     "Solicitar servicio": ("paginas/solicitar_servicio.py", "solicitar-servicio", ":material/add_circle:", "GESTIÓN"),
     "Mis documentos": ("paginas/mis_documentos.py", "mis-documentos", ":material/description:", "GESTIÓN"),
 }
@@ -39,7 +40,7 @@ def crear_paginas(perfil=None):
 
 def registrar_navegacion(perfil=None):
     """Menú nativo superior; URLs estables y visibilidad basada en el rol verificado."""
-    from mente_futuro.presentation import LOGO
+    from servicios.imagenes import LOGO_PORTAL as LOGO
     registro,paginas=crear_paginas(perfil)
     if perfil:
         titulos=allowed_pages(perfil)
@@ -57,7 +58,9 @@ def registrar_navegacion(perfil=None):
 
 def barra_publica():
     """Marca sin enlaces ni sesión; la cabecera del formulario conserva su texto."""
-    from mente_futuro.presentation import LOGO
+    from servicios.imagenes import LOGO_PORTAL as LOGO
+    from utils.modo_ligero import aplicar_modo_ligero
+    aplicar_modo_ligero()
     st.logo(str(LOGO),size='large')
     st.markdown('<span class="mfy-public-nav-marker" aria-hidden="true"></span>',unsafe_allow_html=True)
 
@@ -66,10 +69,15 @@ def barra_cuenta(repo,actual):
     """Acciones de cuenta existentes, ahora en la esquina superior derecha."""
     from utils.componentes import identidad_usuario
     from mente_futuro.ui import logout
+    from utils.modo_ligero import aplicar_modo_ligero,control_modo_ligero
+    aplicar_modo_ligero(repo)
     st.markdown('<span class="mfy-top-nav-marker" aria-hidden="true"></span>',unsafe_allow_html=True)
     with st.container(key='mfy_top_account'):
         with st.popover('Mi cuenta',icon=':material/account_circle:',help='Mi cuenta y cerrar sesión'):
             identidad_usuario(repo.profile.get('nombre'),repo.is_owner)
+            if repo.is_owner:
+                control_modo_ligero()
+                st.page_link('paginas/guia_estilo.py',label='Guía de estilo',icon=':material/palette:')
             st.button('Cerrar sesión',key='logout',width='stretch',icon=':material/logout:',on_click=logout)
     # El menú nativo reduce enlaces a "N more"; el popover estándar da una
     # hamburguesa explícita, en español y con los mismos destinos autorizados.
@@ -114,7 +122,7 @@ def ajustar_menu_superior():
 def rutas_para_perfil(perfil,paginas):
     """Destinos ejecutables del marco; independientes del registro de URLs."""
     titulos=allowed_pages(perfil)
-    if es_admin(perfil):titulos.append('Estado')
+    if es_admin(perfil):titulos.extend(['Estado','Guía de estilo'])
     return {titulo:paginas[titulo] for titulo in titulos}
 
 

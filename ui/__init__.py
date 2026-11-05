@@ -1,0 +1,1 @@
+"""Presentación compartida del portal."""

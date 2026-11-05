@@ -30,7 +30,8 @@ st.navigation(registro,position='hidden')
             app=AppTest.from_string(codigo).run()
             self.assertFalse(app.exception)
             self.assertEqual(app.session_state['visibles'],esperadas)
-            self.assertEqual(len(app.session_state['rutas']),9)
+            self.assertEqual(len(app.session_state['rutas']),10)
+            self.assertIn('Guía de estilo',app.session_state['rutas'])
 
     def test_menu_superior_nativo_y_grupo_mas(self):
         # Simular crecimiento del menú sin agregar ninguna página a producción.

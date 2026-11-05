@@ -1,0 +1,114 @@
+{
+  "streamlit": "1.65.0",
+  "css_bytes": 60825,
+  "componentes_css_bytes": 1563,
+  "logo_bytes": 66728,
+  "favicon_bytes": 89161,
+  "pantallas": [
+    {
+      "rol": "admin",
+      "pagina": "Hoy",
+      "primera_s": 2.679,
+      "repetida_s": 0.105,
+      "llamadas_repo": {},
+      "rpc_cliente": 0,
+      "lectura_perfil": 1,
+      "errores": [],
+      "css_emitido_bytes": 60824
+    },
+    {
+      "rol": "admin",
+      "pagina": "Nueva solicitud",
+      "primera_s": 0.507,
+      "repetida_s": 0.072,
+      "llamadas_repo": {},
+      "rpc_cliente": 0,
+      "lectura_perfil": 1,
+      "errores": [],
+      "css_emitido_bytes": 60824
+    },
+    {
+      "rol": "admin",
+      "pagina": "Casos y cotizaciones",
+      "primera_s": 0.57,
+      "repetida_s": 0.104,
+      "llamadas_repo": {
+        "tariffs": 1
+      },
+      "rpc_cliente": 0,
+      "lectura_perfil": 1,
+      "errores": [],
+      "css_emitido_bytes": 60824
+    },
+    {
+      "rol": "admin",
+      "pagina": "Compartir",
+      "primera_s": 0.464,
+      "repetida_s": 0.07,
+      "llamadas_repo": {
+        "quote_settings": 1,
+        "sharing_settings": 1
+      },
+      "rpc_cliente": 0,
+      "lectura_perfil": 1,
+      "errores": [],
+      "css_emitido_bytes": 60824
+    },
+    {
+      "rol": "admin",
+      "pagina": "Dashboard",
+      "primera_s": 0.618,
+      "repetida_s": 0.211,
+      "llamadas_repo": {},
+      "rpc_cliente": 0,
+      "lectura_perfil": 1,
+      "errores": [],
+      "css_emitido_bytes": 60824
+    },
+    {
+      "rol": "cliente",
+      "pagina": "Solicitar servicio",
+      "primera_s": 0.387,
+      "repetida_s": 0.061,
+      "llamadas_repo": {},
+      "rpc_cliente": 0,
+      "lectura_perfil": 1,
+      "errores": [],
+      "css_emitido_bytes": 60824
+    },
+    {
+      "rol": "cliente",
+      "pagina": "Mis documentos",
+      "primera_s": 0.441,
+      "repetida_s": 0.059,
+      "llamadas_repo": {},
+      "rpc_cliente": 2,
+      "lectura_perfil": 1,
+      "errores": [],
+      "css_emitido_bytes": 60824
+    },
+    {
+      "rol": "publico",
+      "pagina": "Formulario",
+      "primera_s": 0.331,
+      "repetida_s": 0.065,
+      "llamadas_repo": {},
+      "rpc_cliente": 0,
+      "lectura_perfil": 0,
+      "errores": [],
+      "css_emitido_bytes": 60824
+    },
+    {
+      "rol": "publico",
+      "pagina": "Login",
+      "primera_s": 0.322,
+      "repetida_s": 0.052,
+      "llamadas_repo": {},
+      "rpc_cliente": 0,
+      "lectura_perfil": 0,
+      "errores": [],
+      "css_emitido_bytes": 60824
+    }
+  ],
+  "metodologia": "AppTest local, repositorio simulado. No mide red, SQL interno ni tiempo del navegador; primera incluye marco y navegación. Caché calentado al repetir."
+}

@@ -13,7 +13,7 @@ from servicios.solicitud_rapida import (cargar_catalogos,clientes_existentes,cue
  duplicados,sugerencias,sugerir_correo,formatear_rut,normalizar_telefono)
 from utils import formulario_borrador as respaldo
 from utils.formulario_config import CAMPOS,PASOS,OPCIONES,BLOQUEADOS,campos_paso
-from utils.componentes import html_contenido_encabezado,titulo_seccion,preparar_celebracion,enlaces_publicos
+from utils.componentes import html_contenido_encabezado,titulo_seccion,preparar_celebracion,enlaces_publicos,ilustracion
 from servicios.redes_sociales import REDES,normalizar_red
 
 
@@ -142,6 +142,7 @@ class Formulario:
             else:self.enlaces=None
             st.markdown('<div class="mfy-form-heading">'+html_contenido_encabezado('Cuéntanos qué necesita tu equipo',
                 'Una propuesta a tu medida comienza aquí.','SOLICITUDES','')+'</div>',unsafe_allow_html=True)
+            st.markdown(ilustracion('equipo','mfy-hero-principal'),unsafe_allow_html=True)
 
     def progreso(self):
         paso=self.b['step']
@@ -288,6 +289,7 @@ class Formulario:
     def exito(self,recibo):
         respaldo.recuperar(recibo['borrador'],self.modo,self.repo,self.catalogo)
         with st.container(key='mfy_form_publico_success'):
+            st.markdown(ilustracion('listo'),unsafe_allow_html=True)
             st.markdown('<div class="mfy-public-success"><svg viewBox="0 0 64 64" role="img" aria-label="Guardado">'
                 '<circle cx="32" cy="32" r="29" fill="#E7F5ED"/><path d="m18 33 9 9 19-21" fill="none" stroke="#216342" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
                 '<h2>¡Solicitud guardada!</h2><p>Tu número es <strong>'+escape(recibo['codigo'])+'</strong>.</p>'

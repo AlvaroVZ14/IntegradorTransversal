@@ -19,7 +19,7 @@ def allowed_pages(profile):
 
 def guard_route(profile, route):
     pages = allowed_pages(profile)
-    if es_admin(profile) and route == 'Estado':
+    if es_admin(profile) and route in ('Estado','Guía de estilo'):
         return route
     return route if route in pages else 'Hoy' if es_admin(profile) else CLIENT_PAGE
 

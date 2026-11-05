@@ -5,8 +5,8 @@ from pathlib import Path
 from .domain import code, money
 
 ROOT = Path(__file__).resolve().parent.parent
-LOGO = ROOT / "assets" / "logo-mente-y-futuro.jpeg"
-FAVICON = ROOT / "assets" / "favicon-mente-y-futuro.svg"
+from servicios.imagenes import LOGO_DOCUMENTOS as LOGO, ICONO_PORTAL as FAVICON
+
 
 from utils.estilos import ESTILOS_BASE as CSS
 

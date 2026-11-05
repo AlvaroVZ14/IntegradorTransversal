@@ -1,0 +1,4 @@
+python -m unittest discover -s tests
+Ran 263 tests in 147.150s
+OK
+Sin credenciales reales. Repositorios simulados. Revisión visual pendiente por bloqueo del control de navegador.

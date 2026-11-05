@@ -60,7 +60,7 @@ class DashboardSimpleTests(TestCase):
     def test_grid_responsive_aislado_y_sin_datos(self):
         self.assertIn('.st-key-mfy_dashboard_kpis',ESTILOS_BASE)
         self.assertIn('calc(50% - 4px)',ESTILOS_BASE)
-        self.assertIn('min-height:132px',ESTILOS_BASE)
+        self.assertIn('min-height:138px',ESTILOS_BASE)
         app,_=self.setup_app();app.session_state['dashboard_mobile']=True
         app.run();base.ir_a(app,'Dashboard');self.assert_clean(app)
         self.assertEqual(len(app.metric),4);self.assertFalse(app.get('plotly_chart'))

@@ -11,7 +11,7 @@ from utils.navegacion_portal import registrar_navegacion, barra_cuenta, barra_pu
 from utils.borrador_local import limpiar_borrador_al_salir
 from utils.sesion_cookie import cookie_inicial, ordenar_cookie, recordar_sesion, puente_cookie, pantalla_restaurando, mantener_sesion_activa
 
-st.set_page_config(page_title='Mente y Futuro · Portal',page_icon=FAVICON.read_text(encoding='utf-8'),layout='wide')
+st.set_page_config(page_title='Mente y Futuro',page_icon=FAVICON.read_text(encoding='utf-8'),layout='wide')
 st.markdown(CSS,unsafe_allow_html=True)
 
 

@@ -55,6 +55,8 @@ def header(title, subtitle, section):
 
 
 def login():
+    from utils.modo_ligero import aplicar_modo_ligero
+    aplicar_modo_ligero()
     with st.container(key='mfy_login_layout'):
         marca,acceso=st.columns([1.05,1],gap='large')
         with marca:panel_marca_login()
