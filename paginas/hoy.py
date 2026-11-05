@@ -113,6 +113,7 @@ def aviso_cierre(repo):
 
 
 def _contenido(repo, pausado=False):
+    from ui.estados import chip_estado,chip_antiguedad,color_estado
     ahora=datetime.now(CHILE)
     if pausado:
         lectura=estado('hoy')
@@ -140,6 +141,8 @@ def _contenido(repo, pausado=False):
         with columna:
             tarjeta_accion(label,len(tareas[grupo]),key=grupo,icono=icono,ayuda=ayuda,
                            on_click=abrir_registro,args=(label,))
+            st.markdown(chip_estado('Solicitud') if grupo=='solicitudes' else
+                        chip_estado('Pendiente','pago') if grupo=='pagos' else chip_estado('sin_respuesta','cotizacion'),unsafe_allow_html=True)
     if not total:
         todo_al_dia()
     from paginas.compartir import tarjeta_compartir
@@ -155,6 +158,7 @@ def _contenido(repo, pausado=False):
             with st.container(key=f'mfy_form_hoy_{clave}_{i}'):
                 st.markdown('**'+code(caso)+' · '+caso['cliente']+'**')
                 st.write(caso['servicio'])
+                st.markdown(chip_estado(caso['estado'])+(chip_antiguedad(item['dias']) if 'dias' in item else ''),unsafe_allow_html=True)
                 key='hoy_'+clave+'_'+caso['id']+'_'+str(i)
                 if clave=='solicitudes':
                     st.caption(f"{item['dias']} días de espera · Más antiguas primero")
@@ -166,7 +170,8 @@ def _contenido(repo, pausado=False):
                     st.caption(' · '.join(item['faltantes']))
                     st.button('Completar',key=key,on_click=abrir_caso,args=(caso,'venta' if item.get('completar_venta') else 'datos'))
                 elif clave=='pagos':
-                    st.caption(f"{venta['estado_pago']} · {money(venta['monto_clp'])} total de venta")
+                    st.markdown(chip_estado(venta['estado_pago'],'pago'),unsafe_allow_html=True)
+                    st.caption(f"{color_estado(venta['estado_pago'],'pago')['etiqueta']} · {money(venta['monto_clp'])} total de venta")
                     a,b=st.columns(2)
                     a.button('Registrar pago',key=key,on_click=abrir_caso,args=(caso,'venta'))
                     b.button('Preparar recordatorio',key=key+'_recordar',on_click=_abrir_mensaje,args=('pago',caso,q,venta))

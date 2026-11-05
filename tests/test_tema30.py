@@ -19,7 +19,8 @@ def contraste(a,b):
 
 class TemaTests(unittest.TestCase):
     def test_presupuesto_css_e_imagenes_sin_recursos_externos(self):
-        self.assertLess(sum(len(s.encode()) for s in (tema.ESTILOS_BASE,tema.CSS_COPIAR,tema.CSS_EN_VIVO)),20000)
+        # Presupuesto de 20 KiB, incluidos los estilos nuevos de estados.
+        self.assertLess(sum(len(s.encode()) for s in (tema.ESTILOS_BASE,tema.CSS_COPIAR,tema.CSS_EN_VIVO)),20*1024)
         for ruta in (ICONO_PORTAL,LOGO_PORTAL,*ILUSTRACIONES.values()):
             with self.subTest(ruta=ruta.name):
                 self.assertLess(ruta.stat().st_size,10000)

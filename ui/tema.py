@@ -14,9 +14,9 @@ TEXTO='#0B2545'
 SECUNDARIO='#5B6B82'
 PALETA=[AZUL,AZUL_CLARO,MORADO,'#B794FF',AMARILLO,LAVANDA]
 TEMA_BARRA_LATERAL='oscuro'
-ESTADOS_COLORES={'Solicitud':(AZUL,'#EAF1FF','#244FAF'),'Cotizada':(MORADO,'#F1ECFF','#6533A8'),
- 'Aceptada':('#32956B','#E7F5ED','#216342'),'En seguimiento':(AMARILLO,'#FFF6D1','#705800'),
- 'Cerrada':('#8793A5','#EDF0F4','#4D5C71'),'Rechazada':('#E99A9F','#FCECEE','#963D47')}
+from ui.estados import CATALOGO,color_estado,clase_estado,chip_estado
+# Adaptador para consumidores anteriores; no define colores propios.
+ESTADOS_COLORES={e['etiqueta']:(e['solido'],e['fondo'],e['texto']) for e in CATALOGO['caso'].values()}
 
 # Selectores internos de Streamlit 1.65: stHeader/TopNav, stMain,
 # stVerticalBlock/Column, stForm/WidgetLabel, stMetric y stPopover.
@@ -113,7 +113,7 @@ button[kind=secondary]:hover{background:#F1ECFF}button[kind=primary]:hover{trans
 .st-key-casos_chips_estados button{min-height:44px;white-space:normal}
 .st-key-mfy_dashboard_kpis [class*=st-key-mfy_kpi_]{min-height:150px;padding:16px}
 .st-key-mfy_dashboard_kpis .mfy-kpi-icon{width:30px;height:30px;font-size:18px}
-.mfy-preview-shell{max-width:1200px;margin:24px auto;padding:16px}.mfy-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.mfy-preview-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+
 .st-key-mfy_login_layout{padding:16px 0}.st-key-mfy_login_brand{min-height:440px;padding:32px}.mfy-login-steps{display:grid;gap:18px;margin-top:24px}.mfy-login-steps span{display:flex;gap:12px;align-items:center;color:white}.mfy-login-steps b{display:grid;place-items:center;border:1px solid #FFFFFF80;border-radius:12px;width:36px;height:36px}.st-key-mfy_login img{max-width:240px;margin:auto}.mfy-login-subtitle{color:#5B6B82}
 .mfy-login-information{background:#F1ECFF;border-left:4px solid #FFCC00;border-radius:12px;padding:14px;color:#0B2545;white-space:normal}
 .mfy-public-progress{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:#5B6B82}.mfy-public-progress .active{color:#244FAF;font-weight:700}.mfy-progress-track{height:6px;border-radius:6px;background:#E3E8F4;overflow:hidden}.mfy-progress-track i{display:block;height:100%;background:var(--mfy-gradient);transition:transform 180ms}
@@ -148,7 +148,7 @@ button[kind=secondary]:hover{background:#F1ECFF}button[kind=primary]:hover{trans
  [data-testid=stMain] [data-testid=stWidgetLabel] button{min-width:44px;min-height:44px}
  .mfy-table,.mfy-table tbody,.mfy-table tr{display:block;width:100%}.mfy-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.mfy-table tr{padding:10px;border-bottom:1px solid #E3E8F4}.mfy-table td{display:grid;grid-template-columns:minmax(70px,30%) minmax(0,1fr);gap:8px;border:0;padding:8px 0}.mfy-table td:before{content:attr(data-label);color:#5B6B82;font-size:13px}
  .st-key-mfy_dashboard_kpis [data-testid=stHorizontalBlock]{flex-wrap:wrap;gap:8px}.st-key-mfy_dashboard_kpis [data-testid=stHorizontalBlock]>[data-testid=stColumn]{width:calc(50% - 4px)!important;flex:0 0 calc(50% - 4px)!important;min-width:0!important}.st-key-mfy_dashboard_kpis [class*=st-key-mfy_kpi_]{min-height:138px;padding:12px}.st-key-mfy_dashboard_kpis [data-testid=stMetricValue]{font-size:18px}
- .mfy-preview-grid{grid-template-columns:minmax(0,1fr)}.mfy-preview-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.mfy-skeleton-grid{grid-template-columns:1fr}
+ .mfy-skeleton-grid{grid-template-columns:1fr}
  .st-key-mfy_public_actions{position:sticky;bottom:0;padding:8px 0 calc(8px + env(safe-area-inset-bottom));background:#F4F7FF;z-index:20}
  .st-key-mfy_generate{left:16px;right:16px;bottom:calc(12px + env(safe-area-inset-bottom))}
  [data-testid=stImage] img{max-width:100%;height:auto} [data-testid=stDialog] [role=dialog]{max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);overflow-y:auto}
@@ -162,16 +162,39 @@ html[data-mfy-light=true] *,html[data-mfy-light=true] *:before,html[data-mfy-lig
 
 def _compactar(css):
     css=re.sub(r'\s+',' ',re.sub(r'/\*.*?\*/','',css,flags=re.S)).strip()
-    return re.sub(r'\s*([{};,])\s*',r'\1',css)
+    css=re.sub(r'\s*([{};,])\s*',r'\1',css).replace(';}', '}')
+    # Alias de clase equivalentes, verificados en el frontend de Streamlit 1.65.
+    for nombre in ('stHorizontalBlock','stVerticalBlock','stColumn','stElementContainer'):
+        css=css.replace('[data-testid='+nombre+']','.'+nombre)
+    # Solo el CSS emitido se compacta. Las variables legibles permanecen arriba.
+    variables={n:'--v'+str(i) for i,n in enumerate(dict.fromkeys(re.findall(r'--mfy-[\w-]+',css)))}
+    return re.sub(r'--mfy-[\w-]+',lambda m:variables[m[0]],css)
 
+
+# Exclusivo de la previsualización estática de desarrollo, no de las páginas.
+CSS_PREVIEW='<style>'+'.mfy-preview-shell{max-width:1200px;margin:24px auto;padding:16px}.mfy-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.mfy-preview-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}@media(max-width:767px){.mfy-preview-grid{grid-template-columns:minmax(0,1fr)}.mfy-preview-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}'+'</style>'
 
 CSS_VIDRIO='.mfy-glass-chips{display:flex;flex-wrap:wrap;gap:8px}.mfy-glass-chip{display:grid;gap:4px;padding:8px 12px;border:1px solid #FFFFFF70;border-radius:12px;color:white;background:#0B254540}.mfy-glass-chip small{font-size:12px}'
 CSS_COPIAR='button{font:inherit;box-sizing:border-box;width:100%;min-height:44px;border:1px solid #315BBC;border-radius:10px;padding:10px;background:white;color:#244FAF;cursor:pointer}button:focus-visible{outline:3px solid #315BBC;outline-offset:2px}'
 # Streamlit distingue CSS literal de una ruta por los saltos de línea.
 CSS_COPIAR+='\n'
 CSS_EN_VIVO='.live[hidden]{display:none!important}\n'+CSS_VIDRIO
-ESTILOS_BASE='<style>'+_compactar(CSS_PORTAL)+''.join(
-    f'.mfy-state-{i}{{background:{bg};color:{fg}}}' for i,(_,bg,fg) in enumerate(ESTADOS_COLORES.values()))+CSS_VIDRIO+'</style>'
+def _css_estados():
+    grupos={}
+    for tipo,estados in CATALOGO.items():
+        for e in estados.values():
+            colores=tuple(e[k] for k in ('fondo','texto','borde','solido'))
+            grupos.setdefault(colores,set()).add('.'+clase_estado(e['clave'],tipo))
+    css=''.join(','.join(selectores)+'{'+''.join(f'--s-{k}:{v};' for k,v in zip(('bg','fg','b','s'),colores))+'}' for colores,selectores in grupos.items())
+    css+='[class*=mfy-estado-]{color:var(--s-fg);background:var(--s-bg);border:1px solid var(--s-b)}.mfy-badge{gap:5px}.mfy-table tr[class*=mfy-estado-]{border-left:4px solid var(--s-s);background:white;color:inherit}.mfy-case-band{padding:12px 16px;border-left:6px solid var(--s-s);border-radius:12px}.mfy-timeline article[class*=mfy-estado-]{border:0;border-left:3px solid var(--s-s);padding:8px}.mfy-timeline article[class*=mfy-estado-]:before{background:var(--s-s)}'
+    # Orden de las opciones nativas; conserva la subetapa En revisión.
+    for n,estado in enumerate(('Solicitud','En revisión','Cotizado','Vendido','En ejecución','Finalizado','Cancelado'),2):
+        e=color_estado(estado)
+        css+=f'.st-key-casos_chips_estados button:nth-child({n})'+'{'+f'background:{e["fondo"]};color:{e["texto"]};border-color:{e["borde"]}'+'}'
+    css+='.st-key-casos_chips_estados button[data-selected]{outline:3px solid currentColor;outline-offset:2px;font-weight:700}'
+    return css
+
+ESTILOS_BASE='<style>'+_compactar(CSS_PORTAL+_css_estados())+CSS_VIDRIO+'</style>'
 
 
 from contextlib import contextmanager
@@ -243,15 +266,13 @@ def identidad_usuario(nombre, es_admin):
 
 
 def badge_estado(estado, cantidad=None):
-    etiqueta = estado_visual(estado)
-    indice = list(ESTADOS_COLORES).index(etiqueta) if etiqueta in ESTADOS_COLORES else 4
-    titulo = ' title="Solicitud en revisión"' if estado == "En revisión" else ""
-    texto = etiqueta + (f" · {int(cantidad)}" if cantidad is not None else "")
-    return f'<span class="mfy-badge mfy-state-{indice}"{titulo}>{escape(texto)}</span>'
+    return chip_estado(estado,cantidad=cantidad)
 
 
 def leyenda_estados():
-    st.markdown('<div class="mfy-state-key">'+''.join(badge_estado(e) for e in ESTADOS_COLORES)+'</div>', unsafe_allow_html=True)
+    with st.expander('¿Qué significa cada color?'):
+        for e in CATALOGO['caso'].values():
+            st.markdown(chip_estado(e['clave'])+' '+escape(e['ayuda']),unsafe_allow_html=True)
 
 
 def html_tabla_registros(frame, titulo="Registro de casos"):
@@ -268,7 +289,8 @@ def html_tabla_registros(frame, titulo="Registro de casos"):
                     valor = valor.strftime("%d/%m/%Y")
                 contenido = f'<span>{escape(str(valor if valor is not None else "—"))}</span>'
             celdas.append(f'<td data-label="{escape(str(columna), quote=True)}">{contenido}</td>')
-        filas.append('<tr>'+''.join(celdas)+'</tr>')
+        clase=' class="'+clase_estado(registro['Estado'])+'"' if 'Estado' in registro else ''
+        filas.append('<tr'+clase+'>'+''.join(celdas)+'</tr>')
     return ('<div class="mfy-table-wrap" tabindex="0"><table class="mfy-table">'
             f'<caption>{escape(titulo)} · {len(frame)} registros</caption><thead><tr>{encabezados}</tr></thead>'
             '<tbody>'+''.join(filas)+'</tbody></table></div>')
@@ -490,7 +512,7 @@ def tabla(frame, titulo='Registro'):
 
 def linea_de_tiempo(eventos):
     st.markdown('<section class="mfy-timeline">'+''.join(
-        '<article><small>'+escape(str(e.get('fecha','')))+ '</small><strong>'+escape(str(e.get('titulo','')))+
+        '<article'+(' class="'+clase_estado(e['estado'])+'"' if e.get('estado') else '')+'><small>'+escape(str(e.get('fecha','')))+ '</small><strong>'+escape(str(e.get('titulo','')))+
         '</strong><p>'+escape(str(e.get('detalle','')))+ '</p></article>' for e in eventos)+'</section>',unsafe_allow_html=True)
 
 

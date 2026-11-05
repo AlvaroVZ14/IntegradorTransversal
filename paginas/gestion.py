@@ -16,6 +16,7 @@ from utils.componentes import (badge_estado, tabla_registros, encabezado_pagina,
 from servicios.lecturas_locales import leer_con_respaldo
 from servicios.en_vivo import cargar, carga_inicial
 from utils.en_vivo import indicador as indicador_en_vivo
+from ui.estados import (chip_estado,clase_estado,etiqueta_con_icono,estado_cotizacion,vigencia_cotizacion)
 
 
 def _lectura(repo,clave,consulta):
@@ -34,14 +35,22 @@ def case_table(cases):
     return frame
 
 
-def quote_history(quotes,repo=None,case=None):
+def quote_history(quotes,repo=None,case=None,eventos=None):
     if not quotes:
         st.info("Este caso todavía no tiene cotizaciones emitidas.")
         return
+    if eventos is None and repo is not None and case:
+        try:eventos=_lectura(repo,'eventos:'+case['id'],lambda:repo.quote_events(case['id']))
+        except Exception:pass
+    eventos=eventos or []
     for q in quotes:
         expired = date.fromisoformat(q["valida_hasta"]) < today()
         label = f"{code(q, 'COT')} · {money(q['total_clp'])} · {'Vencida' if expired else 'Vigente'}"
         with st.expander(label, expanded=q == quotes[0]):
+            visual=estado_cotizacion(q,case,eventos)
+            if visual:st.markdown(chip_estado(visual,'cotizacion'),unsafe_allow_html=True)
+            else:st.caption('Generada · Sin envío registrado')
+            st.caption(vigencia_cotizacion(q))
             st.caption(f"Emitida el {date.fromisoformat(q['fecha_emision']):%d/%m/%Y} · Válida hasta {date.fromisoformat(q['valida_hasta']):%d/%m/%Y}")
             st.text(q["detalle"])
             a,b,c = st.columns(3)
@@ -91,6 +100,7 @@ def sale_form(repo, case, quotes):
     require_admin(repo)
     sale = next((s for s in _lectura(repo,"ventas",repo.sales) if s["caso_id"] == case["id"]),None)
     if sale:
+        st.markdown(chip_estado(sale['estado_pago'],'pago'),unsafe_allow_html=True)
         st.metric("Venta registrada",money(sale["monto_clp"]))
         if sale.get('reserva_clp') is not None and sale.get('remuneracion_clp') is not None:
             a,b=st.columns(2)
@@ -100,7 +110,7 @@ def sale_form(repo, case, quotes):
         st.caption(f"Fecha de venta: {date.fromisoformat(sale['fecha_venta']):%d/%m/%Y}. Una venta anulada se excluye del dashboard.")
         with st.form(f"sale_{sale['id']}_{sale['version']}"):
             titulo_seccion(3, "Estado de la venta")
-            payment = st.selectbox("Estado del pago",PAYMENTS,index=PAYMENTS.index(sale["estado_pago"]))
+            payment = st.selectbox("Estado del pago",PAYMENTS,index=PAYMENTS.index(sale["estado_pago"]),format_func=lambda e:etiqueta_con_icono(e,'pago'))
             annulled = st.checkbox("Venta anulada",value=sale["anulada"])
             confirm_annulled = st.checkbox("Confirmo anular esta venta") if not sale["anulada"] else True
             submitted = st.form_submit_button("Guardar estado de la venta",type="primary")
@@ -127,7 +137,7 @@ def sale_form(repo, case, quotes):
     with st.form(f"new_sale_{case['id']}_{chosen}"):
         titulo_seccion(3, "Registra la venta")
         sale_date = st.date_input("Fecha de aceptación",value=min(today(),date.fromisoformat(quote["valida_hasta"])),min_value=date.fromisoformat(quote["fecha_emision"]),max_value=today(),format="DD/MM/YYYY")
-        payment = st.selectbox("Estado del pago",PAYMENTS)
+        payment = st.selectbox("Estado del pago",PAYMENTS,format_func=lambda e:etiqueta_con_icono(e,'pago'))
         a,b=st.columns(2)
         reserva=a.number_input('Reserva (%)',0.0,100.0,RESERVA_PCT_DEFAULT,step=.5,key='venta_reserva_'+chosen)
         remuneracion=b.number_input('Remuneración (%)',0.0,100.0,REMUNERACION_PCT_DEFAULT,step=.5,key='venta_remuneracion_'+chosen)
@@ -197,8 +207,13 @@ def _listado_casos(repo):
                         key='casos_estado_filtro',on_change=_cambio_estado_registro,
                         help='Elige un estado o uno de los tres grupos de pendientes de Hoy.')
     st.session_state.setdefault('casos_chips_estados',state if state in ('Todos los estados',*STATES) else None)
+    conteos={e:sum(c['estado']==e for c in cases) for e in STATES}
     st.pills('Estados del caso',['Todos los estados',*STATES],selection_mode='single',
-             format_func=etiqueta_opcion_estado,key='casos_chips_estados',on_change=_cambio_chip_estado)
+             format_func=lambda e:('Todos los estados · '+str(len(cases))) if e=='Todos los estados' else
+                 etiqueta_con_icono(e)+(' · en revisión' if e=='En revisión' else '')+' · '+str(conteos[e]),
+             key='casos_chips_estados',on_change=_cambio_chip_estado)
+    from utils.componentes import leyenda_estados
+    leyenda_estados()
     if state in FILTROS_ACCION:
         cases=casos_por_accion(lectura['datos'],state)
     filtered = [c for c in cases if (state in ('Todos los estados',*FILTROS_ACCION) or c["estado"] == state)
@@ -244,7 +259,7 @@ def cases_content(repo):
               icon=':material/arrow_back:')
     case = _lectura(repo, 'detalle:'+seleccionado, lambda:repo.get_case(seleccionado))
     st.subheader(f"{code(case)} · {case.get('servicio') or 'Servicio por definir'}")
-    st.markdown(badge_estado(case["estado"]),unsafe_allow_html=True)
+    st.markdown('<div class="mfy-case-band '+clase_estado(case['estado'])+'">'+badge_estado(case['estado'])+'</div>',unsafe_allow_html=True)
     from utils.canales import etiqueta_canal
     from utils.componentes import chips_activos
     chips_activos(['Canal · '+etiqueta_canal(case.get('canal_captacion'))])
@@ -253,6 +268,8 @@ def cases_content(repo):
         st.warning('Faltan datos: '+', '.join(CAMPOS['tematicas' if k=='tematica' else k].etiqueta for k in case.get('datos_pendientes',[])))
     st.write("")
     quotes = _lectura(repo,f"cotizaciones:{case['id']}",lambda:repo.quotes(case["id"]))
+    try:eventos=_lectura(repo,'eventos:'+case['id'],lambda:repo.quote_events(case['id']))
+    except Exception:eventos=[]
     if repo.is_owner:
         cotizar=st.session_state.pop('abrir_cotizacion',None)==case['id']
         if st.session_state.pop('abrir_datos_caso',False):cotizar=False
@@ -265,7 +282,7 @@ def cases_content(repo):
             edit_case(repo,case)
         with quote_tab:
             st.subheader("Historial de cotizaciones")
-            quote_history(quotes,repo,case)
+            quote_history(quotes,repo,case,eventos)
             st.divider()
             st.subheader("Preparar una cotización")
             issue_quote(repo,case)
@@ -276,7 +293,7 @@ def cases_content(repo):
                 from paginas.documentos_caso import documentos_caso
                 documentos_caso(repo,case,quotes)
         from paginas.acciones_cotizacion import historial_eventos,aviso_deshacer
-        historial_eventos(repo,case)
+        historial_eventos(repo,case,eventos)
         aviso_deshacer(repo)
 
 

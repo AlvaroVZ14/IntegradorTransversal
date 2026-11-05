@@ -86,6 +86,8 @@ def editor_cotizacion(repo,caso):
     if caso['estado'] in ('Vendido','En ejecución','Finalizado','Cancelado'):
         st.info('Este caso está cerrado para nuevas cotizaciones. Puedes consultar las propuestas emitidas.')
         return
+    from ui.estados import chip_estado
+    st.markdown(chip_estado('borrador','cotizacion'),unsafe_allow_html=True)
     tarifas=repo.tariffs();plantillas=repo.program_templates()
     inicial=prellenar(caso,tarifas,plantillas)
     ampliar_borrador(inicial,caso,next((p for p in plantillas if p['id']==inicial.get('plantilla_id')),None))

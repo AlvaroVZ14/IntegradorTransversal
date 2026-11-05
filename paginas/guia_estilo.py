@@ -21,6 +21,13 @@ def guia_estilo(repo):
     st.markdown(tema.avatar('Camila Ficticia'),unsafe_allow_html=True)
     for tipo in ('exito','info','atencion','error'):tema.aviso('Un mensaje breve de ejemplo.',tipo)
     tema.leyenda_estados()
+    from ui.estados import CATALOGO,chip_estado
+    import json
+    for tipo,titulo in (('pago','Pagos'),('cotizacion','Cotizaciones'),('antiguedad','Antigüedad')):
+        st.subheader(titulo)
+        st.markdown(' '.join(chip_estado(e['clave'],tipo) for e in CATALOGO[tipo].values()),unsafe_allow_html=True)
+    st.download_button('Descargar catálogo de colores',json.dumps(CATALOGO,ensure_ascii=False,indent=2),
+        file_name='estados-mente-y-futuro.json',mime='application/json')
     tema.estado_vacio('Aquí aparecerán tus documentos. Puedes comenzar con una nueva solicitud.')
     tema.tabla(pd.DataFrame([{'Caso':'MF-2026-0001','Cliente':'Empresa ficticia','Estado':'Solicitud'}]),'Tabla de ejemplo')
     tema.linea_de_tiempo([{'fecha':'05/11/2026','titulo':'Solicitud recibida','detalle':'Ejemplo de seguimiento.'}])

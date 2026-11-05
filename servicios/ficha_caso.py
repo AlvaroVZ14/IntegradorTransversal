@@ -11,6 +11,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Tabl
 from mente_futuro.domain import code
 from mente_futuro.presentation import LOGO
 from servicios.redes_sociales import REDES, redes_del_caso
+from ui.estados import color_estado
 
 
 def generar_ficha_pdf(caso):
@@ -28,8 +29,16 @@ def generar_ficha_pdf(caso):
         return t
     fecha=datetime.fromisoformat(caso['created_at'].replace('Z','+00:00'))
     if fecha.tzinfo:fecha=fecha.astimezone(ZoneInfo('America/Santiago'))
+    estado=color_estado(caso.get('estado'))
+    estilo_estado=ParagraphStyle('FichaEstado',parent=normal,textColor=colors.HexColor(estado['texto']))
+    banda=Table([[Paragraph(escape(estado['etiqueta'])+'<br/>'+escape(estado['ayuda']),estilo_estado)]],colWidths=[485])
+    banda.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,-1),colors.HexColor(estado['fondo'])),
+        ('LINEBEFORE',(0,0),(0,-1),5,colors.HexColor(estado['solido'])),
+        ('BOX',(0,0),(-1,-1),.5,colors.HexColor(estado['borde'])),
+        ('LEFTPADDING',(0,0),(-1,-1),12),('TOPPADDING',(0,0),(-1,-1),8),('BOTTOMPADDING',(0,0),(-1,-1),8)]))
     historia=[Image(str(LOGO),width=170,height=94,kind='proportional',hAlign='LEFT'),Spacer(1,12),
               Paragraph('Ficha del caso '+code(caso),titulo),p('Registrado el '+fecha.strftime('%d/%m/%Y')),
+              banda,Spacer(1,8),
               HRFlowable(width='100%',thickness=2,color=acento),Paragraph('Empresa y contacto',seccion),
               tabla([(k,caso.get(v)) for k,v in [('Empresa','cliente'),('Contacto','contacto'),('RUT','rut'),
                     ('Cargo','cargo'),('Correo','email'),('Teléfono','telefono')]]),Paragraph('Servicio solicitado',seccion),

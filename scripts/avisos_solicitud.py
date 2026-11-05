@@ -2,6 +2,10 @@
 from email.message import EmailMessage
 from email.utils import formatdate
 import os,re,smtplib,ssl,json
+from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
+from ui.estados import html_correo
 from urllib.request import Request,urlopen
 
 def rpc(nombre,datos):
@@ -21,6 +25,7 @@ def enviar(aviso,settings,conexion=None):
         label+': '+str(aviso.get(k) or 'Por definir') for k,label in [('codigo','Número'),('cliente','Empresa'),
         ('contacto','Contacto'),('email','Correo'),('telefono','Teléfono'),('servicio','Servicio'),('fecha_preferida','Fecha preferida')])
         +'\n\nAbre Casos y cotizaciones para revisar la solicitud. Este aviso no cambia el estado del caso.')
+    msg.add_alternative(html_correo(msg.get_content(),'Solicitud'),subtype='html')
     enviando=False
     try:
         puerto=int(settings.get('puerto',587));seguro=puerto==465

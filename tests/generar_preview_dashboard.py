@@ -9,6 +9,7 @@ from servicios.dashboard import datos_dashboard,ventas_por_dimension
 from mente_futuro.domain import money
 from utils.componentes import html_encabezado
 from utils.estilos import ESTILOS_BASE
+from ui.tema import CSS_PREVIEW
 from utils.graficos_dashboard import barras_ventas,embudo_estados,origenes,ventas_por_periodo
 
 desde,hasta=date(2026,11,1),date(2026,11,30)
@@ -26,7 +27,7 @@ for i,(titulo,fig) in enumerate(figuras):
     fig.update_layout(height=320)
     cards.append(f'<article class="st-key-mfy_chart_preview"><h3>{titulo}</h3>'+fig.to_html(full_html=False,
         include_plotlyjs=True if i==0 else False,config={'displayModeBar':False,'responsive':True})+'</article>')
-html='<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+ESTILOS_BASE
+html='<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+ESTILOS_BASE+CSS_PREVIEW
 html+='<body class="stApp"><main class="mfy-preview-shell st-key-mfy_dashboard">'+html_encabezado('Mes: noviembre 2026',desde,hasta)
 html+='<p>VISTA DE PRUEBA · Datos completamente ficticios; no se guardan en Supabase.</p>'
 valores=[('Total vendido',money(data['total'])),('Venta promedio',money(data['average'])),

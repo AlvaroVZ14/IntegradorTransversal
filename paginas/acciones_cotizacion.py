@@ -147,7 +147,8 @@ def dialogo_aceptar(repo,caso,q):
     a,b=st.columns(2)
     reserva=a.number_input('Reserva (%)',0.0,100.0,RESERVA_PCT_DEFAULT,step=.5,key=llave+'_reserva')
     remuneracion=b.number_input('Remuneración (%)',0.0,100.0,REMUNERACION_PCT_DEFAULT,step=.5,key=llave+'_remuneracion')
-    pago=st.selectbox('Estado del pago',PAYMENTS,key=llave+'_pago')
+    from ui.estados import etiqueta_con_icono
+    pago=st.selectbox('Estado del pago',PAYMENTS,key=llave+'_pago',format_func=lambda e:etiqueta_con_icono(e,'pago'))
     documento=st.text_input('N° de documento (opcional)',max_chars=100,key=llave+'_documento')
     if round(reserva+remuneracion,2)!=100:st.error('Reserva y remuneración deben sumar 100%.')
     st.caption('Aceptar y registrar venta crea una sola venta y deja el caso En seguimiento. Deshacer estará disponible durante 10 segundos.')
@@ -218,10 +219,11 @@ def aviso_deshacer(repo):
             st.button('Deshacer',key='undo_quote_decision',on_click=_undo,args=(repo,))
 
 
-def historial_eventos(repo,caso):
+def historial_eventos(repo,caso,eventos=None):
     require_admin(repo)
-    try:eventos=repo.quote_events(caso['id'])
-    except Exception:return
+    if eventos is None:
+        try:eventos=repo.quote_events(caso['id'])
+        except Exception:return
     if eventos:
         with st.expander('Historial del caso y envíos'):
             for e in eventos:
@@ -233,7 +235,15 @@ def historial_eventos(repo,caso):
                     nombre={'seguimiento':'Seguimiento realizado','pago':'Recordatorio de pago realizado','agradecimiento':'Agradecimiento realizado'}.get(e['datos'].get('tipo_mensaje'),'Contacto realizado')
                     texto=f'{nombre} el {fecha:%d/%m/%Y}'
                 else:texto=f"{e['tipo'].capitalize()} · {fecha:%d/%m/%Y %H:%M}"
-                st.write(texto+(' · Deshecho' if e.get('deshecho_en') else ''))
+                from ui.estados import chip_estado
+                from utils.componentes import linea_de_tiempo
+                estado=e.get('datos',{}).get('estado_nuevo')
+                if e['tipo'] in ('aceptar','vender','rechazar','cierre'):
+                    estado={'aceptar':'Aceptada','vender':'En seguimiento','rechazar':'Rechazada','cierre':'Cerrada'}[e['tipo']]
+                if estado and not e.get('deshecho_en'):
+                    st.markdown(chip_estado(estado),unsafe_allow_html=True)
+                linea_de_tiempo([dict(fecha=f'{fecha:%d/%m/%Y %H:%M}',titulo=texto,
+                    detalle='Deshecho' if e.get('deshecho_en') else '',estado=estado if not e.get('deshecho_en') else None)])
 
 
 def guardar_plantilla(repo,caso,q):

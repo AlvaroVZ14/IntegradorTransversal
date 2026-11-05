@@ -7,7 +7,7 @@ from plotly.subplots import make_subplots
 
 from mente_futuro.domain import money
 from utils.estilos import AMARILLO, AZUL, AZUL_CLARO, LAVANDA, MORADO, PALETA
-from utils.estilos import ESTADOS_COLORES
+from ui.estados import mapa_colores,TEXTO_GRAFICOS
 from utils.plotly_tema import aplicar_tema, eje_conteo
 
 
@@ -80,15 +80,16 @@ def tematicas_dona(topics, reduced_motion=False):
 
 
 def embudo_estados(states, reduced_motion=False):
-    etapas=["Solicitud","Cotizada","Aceptada","En seguimiento","Cerrada"]
+    colores=mapa_colores()
+    etapas=[e for e in colores if e!='Rechazada']
     conteos=states.set_index("estado")["Casos"].to_dict() if not states.empty else {}
     valores=[int(conteos.get(e,0)) for e in etapas]
     if not sum(valores):
         return None
     total=sum(valores)
     porcentajes=[f"{v/total:.0%}" for v in valores]
-    fig=go.Figure(go.Funnel(y=etapas,x=valores,text=porcentajes,textinfo="value+text",textposition="inside",
-        marker=dict(color=[ESTADOS_COLORES[e][0] for e in etapas]),connector=dict(line=dict(color="#E4E9F2")),
+    fig=go.Figure(go.Funnel(y=etapas,x=valores,text=porcentajes,textinfo="value+text",textposition="inside",textfont=dict(color=TEXTO_GRAFICOS),
+        marker=dict(color=[colores[e] for e in etapas]),connector=dict(line=dict(color="#E4E9F2")),
         hovertemplate="%{y}<br>%{x:d} casos · %{text} del embudo actual<extra></extra>"))
     return aplicar_tema(fig,reduced_motion)
 

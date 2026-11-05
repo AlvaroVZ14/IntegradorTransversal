@@ -41,6 +41,8 @@ def enviar_correo(repo,cotizacion,operation_id,destinatario,asunto,cuerpo,adjunt
     mensaje=EmailMessage();mensaje['From']=settings['remitente'];mensaje['To']=destinatario;mensaje['Subject']=asunto
     mensaje['Date']=formatdate(localtime=True);mensaje['Message-ID']=make_msgid()
     mensaje.set_content(cuerpo)
+    from ui.estados import html_correo
+    mensaje.add_alternative(html_correo(cuerpo,'enviada','cotizacion'),subtype='html')
     for nombre,contenido,mime in adjuntos:
         principal,subtipo=mime.split('/',1)
         mensaje.add_attachment(contenido,maintype=principal,subtype=subtipo,filename=nombre)
