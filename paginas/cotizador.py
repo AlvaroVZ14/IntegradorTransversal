@@ -1,6 +1,8 @@
 """Editor administrativo prellenado, borrador persistente y generación explícita."""
 from copy import deepcopy
-from datetime import date,timedelta
+from html import escape
+from servicios.flujo_cotizaciones import PASOS,duplicar_borrador
+from datetime import date,timedelta,datetime
 from time import time
 from uuid import uuid4
 import streamlit as st
@@ -17,12 +19,20 @@ from servicios.cotizacion_defaults import VIGENCIA_DIAS_DEFAULT,CONDICIONES_DEFA
 from servicios.pago_cotizacion import CAMPOS_PAGO,LIMITES_PAGO,leer_pago_secrets,pago_para_documento,normalizar_pago
 
 
+def _total(datos):
+    clave=(datos['base_clp'],datos['descuento_pct'],datos['iva_pct'])
+    ultimo=st.session_state.get('cot_total')
+    if not ultimo or ultimo[0]!=clave:
+        ultimo=(clave,quote_total(*clave));st.session_state.cot_total=ultimo
+    return ultimo[1]
+
+
 def _guardar(repo,caso_id,draft):
     if not draft['pendiente'] or time()<draft.get('reintento',0):return False
     try:
         row=repo.save_quote_draft(caso_id,draft['datos'],draft['version'])
         if not row:raise ConnectionError()
-        draft.update(version=row['version'],pendiente=False,error=None,reintento=0,guardado=True)
+        draft.update(version=row['version'],pendiente=False,error=None,reintento=0,guardado=True,guardado_en=time())
         draft['confirmado']=valores_texto(draft['datos'])
         return True
     except Exception as error:
@@ -81,6 +91,7 @@ def _estado_borrador(repo,caso_id):
     elif draft.get('guardado'):st.caption('Borrador guardado ✓ · No crea una versión de cotización.')
 
 
+@st.fragment
 def editor_cotizacion(repo,caso):
     require_admin(repo)
     if caso['estado'] in ('Vendido','En ejecución','Finalizado','Cancelado'):
@@ -88,7 +99,12 @@ def editor_cotizacion(repo,caso):
         return
     from ui.estados import chip_estado
     st.markdown(chip_estado('borrador','cotizacion'),unsafe_allow_html=True)
-    tarifas=repo.tariffs();plantillas=repo.program_templates()
+    cache=st.session_state.setdefault('cot_catalogo',{})
+    identidad=(repo.user.id,id(repo.client),st.session_state.get('dashboard_revision',0))
+    if cache.get('identidad')!=identidad or time()-cache.get('fecha',0)>60:
+        cache.clear()
+        cache.update(identidad=identidad,fecha=time(),tarifas=repo.tariffs(),plantillas=repo.program_templates())
+    tarifas=cache['tarifas'];plantillas=cache['plantillas']
     inicial=prellenar(caso,tarifas,plantillas)
     ampliar_borrador(inicial,caso,next((p for p in plantillas if p['id']==inicial.get('plantilla_id')),None))
     drafts=st.session_state.setdefault('cotizadores',{})
@@ -97,7 +113,7 @@ def editor_cotizacion(repo,caso):
         datos={**inicial,**deepcopy(row['datos'])} if row else inicial
         if row and 'vigencia_automatica' not in row['datos']:datos['vigencia_automatica']=False
         drafts[caso['id']]=dict(datos=datos,version=row['version'] if row else 0,pendiente=not bool(row),
-            guardado=bool(row),error=None,operacion=str(uuid4()))
+            guardado=bool(row),guardado_en=datetime.fromisoformat(row['updated_at'].replace('Z','+00:00')).timestamp() if row and row.get('updated_at') else time(),error=None,operacion=str(uuid4()))
     draft=drafts[caso['id']];d=draft['datos']
     for nombre,valor in inicial.items():
         if nombre not in d:d[nombre]=deepcopy(valor);draft.update(pendiente=True,reintento=0)
@@ -133,12 +149,11 @@ def editor_cotizacion(repo,caso):
     if falta:
         st.warning('Para generar, completa: '+', '.join(label for label,_ in falta)+'. Tu borrador se conserva.')
         for label,dest in falta:
-            tab='Importes' if dest=='importes' else 'Condiciones' if dest=='condiciones' else 'Programa'
+            tab='Importes' if dest=='importes' else 'Condiciones y pago' if dest=='condiciones' else 'Detalle' if dest=='detalle_modalidad' else 'Programa'
             st.markdown(f'<a href="#cot-{dest}">Ir a {label}</a>',unsafe_allow_html=True)
             if st.button('Abrir '+label,key='missing_'+caso['id']+label):
                 st.session_state['cot_tabs_'+caso['id']]=tab;st.rerun()
     else:st.info('Prellenado automáticamente. Revisa y genera.')
-    campo('fecha_emision','Fecha de emisión','date_input',format='DD/MM/YYYY')
     _estado_borrador(repo,caso['id'])
     recomendada=recomendar_tarifa(caso,tarifas)
     opciones={t['id']:t for t in tarifas if t.get('activa',True) and t['servicio']==caso['servicio']}
@@ -154,100 +169,153 @@ def editor_cotizacion(repo,caso):
             draft.update(pendiente=True,reintento=0);_guardar(repo,caso['id'],draft)
     llave=f"cotedit_{caso['id']}_tarifa_id"
     if llave not in st.session_state:st.session_state[llave]=d['tarifa_id']
-    st.selectbox('Tarifa de referencia',[None,*opciones],key=llave,on_change=cambiar_tarifa,
-        format_func=lambda x:('Recomendada · ' if recomendada and x==recomendada['id'] else '')+f"{opciones[x]['nombre']} · {money(opciones[x]['monto_clp'])}" if x else 'Cotización personalizada')
-    t=opciones.get(d.get('tarifa_id'))
-    if t:
-        st.caption(f"Referencia: {t.get('participantes','—')} participantes · {t.get('horas','—')} horas. {t.get('fuente','')}")
-        if t.get('participantes')!=caso.get('participantes') or float(t.get('horas',0))!=float(caso.get('horas') or 0):
-            st.warning('La cantidad de participantes o las horas difieren de esta referencia. Ajusta el monto y el alcance antes de emitir.')
-    plantilla_opciones={p['id']:p for p in plantillas if p.get('activa',True)}
-    if d.get('plantilla_id') not in plantilla_opciones:d['plantilla_id']=None
-    seleccion=st.selectbox('Plantilla de programa',[None,*plantilla_opciones],index=[None,*plantilla_opciones].index(d.get('plantilla_id')),
-        format_func=lambda x:plantilla_opciones[x]['nombre'] if x else 'Texto personalizado',key='plantilla_select_'+caso['id'])
-    if seleccion!=d.get('plantilla_id'):
-        st.caption('La selección conserva tu edición actual hasta pulsar Cargar textos.')
-        if st.button('Cargar textos de esta plantilla',key='load_tpl_'+caso['id']):
-            d['plantilla_id']=seleccion;d['textos']=textos_plantilla(caso,t,plantilla_opciones.get(seleccion))
-            plantilla_textos=(plantilla_opciones.get(seleccion) or {}).get('textos') or {}
-            for lista in ('objetivos_especificos','momentos'):d[lista]=deepcopy(plantilla_textos.get(lista) or [])
-            ampliar_borrador(d,caso)
-            for k in SECCIONES:draft.setdefault('reset_local',{})[k]=str(uuid4())
-            for k in SECCIONES:st.session_state.pop(f"cotedit_{caso['id']}_{k}",None)
-            draft.update(pendiente=True,reintento=0);_guardar(repo,caso['id'],draft);st.rerun()
-    origen=textos_plantilla(caso,t,plantilla_opciones.get(d.get('plantilla_id')))
-    with st.container(key='mfy_form_quote'):
-        titulo_seccion(2,'Tu propuesta a medida')
-        # Descartar la pestaña antigua conservada por una sesión abierta.
-        if st.session_state.get('cot_tabs_'+caso['id'])=='Vista previa':
-            st.session_state['cot_tabs_'+caso['id']]='Programa'
-        programa,importes,condiciones=st.tabs(['Programa','Importes','Condiciones'],key='cot_tabs_'+caso['id'],on_change='rerun')
-        with programa:
-            campo('cliente','Cliente *',max_chars=180)
-            campo('servicio','Servicio de la propuesta *',max_chars=180)
-            a,b,c=st.columns(3)
-            with a:campo('modalidad','Modalidad de la propuesta','selectbox',options=['Presencial','Online','Híbrida','Por definir'])
-            with b:campo('participantes','Participantes de la propuesta','number_input',min_value=1,max_value=10000)
-            with c:campo('horas','Horas de la propuesta','number_input',min_value=.5,max_value=1000.0,step=.5)
-            campo('detalle_modalidad','Detalle de la modalidad *','text_area',max_chars=1000,height=100,
-                  help='Por ejemplo: presencial, dos jornadas de cuatro horas en las oficinas del cliente.')
-            campo('detalle','Detalle incluido en la propuesta (opcional)','text_area',max_chars=5000,height=130,
-                  help='Opcional. Si queda vacío, el documento usa el servicio y el detalle de la modalidad.')
-            for k,label in SECCIONES.items():
-                if k=='incluye':continue
-                campo(k,'Incluir '+label.lower(),'toggle',grupo='mostrar')
-                # El interruptor afecta al documento, nunca borra ni oculta la edición.
-                etiqueta={'objetivos':'Objetivo general','metodologia':'Frase introductoria de metodología','descripcion':'Descripción del servicio'}.get(k,label)
-                campo(k,etiqueta,'text_area',grupo='textos',max_chars=5000,height=100)
-                st.button('Restablecer al texto de la plantilla',key='reset_'+caso['id']+k,
-                    on_click=_restablecer,args=(repo,caso['id'],k,origen[k],
-                        'objetivos_especificos' if k=='objetivos' else 'momentos' if k=='metodologia' else None,
-                        ((plantilla_opciones.get(d.get('plantilla_id')) or {}).get('textos') or {}).get('objetivos_especificos' if k=='objetivos' else 'momentos',[])))
-                if k in ('objetivos','metodologia'):
-                    from paginas.listas_propuesta import editar_lista
-                    st.caption('Objetivos específicos' if k=='objetivos' else 'Momentos metodológicos')
-                    editar_lista(repo,caso['id'],draft,'objetivos_especificos' if k=='objetivos' else 'momentos',_guardar)
-            campo('jornadas_duracion','Jornadas y duración',max_chars=1000)
-        with importes:
-            st.markdown('<span id="cot-importes"></span>',unsafe_allow_html=True)
-            a,b,c=st.columns(3)
-            with a:campo('base_clp','Valor base (CLP)','number_input',min_value=0,max_value=100000000000,step=1000)
-            with b:campo('descuento_pct','Descuento (%)','number_input',min_value=0.0,max_value=100.0,step=.5)
-            with c:
-                key='cotedit_'+caso['id']+'_exento'
-                if key not in st.session_state:st.session_state[key]=d['iva_pct']==0
-                st.toggle('Exento de IVA',key=key,on_change=_editar,args=(repo,caso['id'],'exento'))
-            campo('item_descripcion','Descripción del ítem 1','text_area',max_chars=5000,height=100)
-            campo('descuento_motivo','Motivo del descuento',max_chars=500)
-            campo('descuento_periodo','Período del descuento (opcional)',max_chars=500)
-            campo('incluye','Incluir qué incluye','toggle',grupo='mostrar')
-            campo('incluye','Qué incluye','text_area',grupo='textos',max_chars=5000,height=150)
-            st.button('Restablecer al texto de la plantilla',key='reset_'+caso['id']+'incluye',
-                      on_click=_restablecer,args=(repo,caso['id'],'incluye',origen['incluye']))
-            st.metric('Total de la propuesta (CLP)',money(quote_total(d['base_clp'],d['descuento_pct'],d['iva_pct'])))
-            st.caption('Los descuentos son manuales. La versión conservará estos valores al generar.')
-        with condiciones:
-            campo('valida_hasta','Válida hasta','date_input',min_value=date.fromisoformat(d['fecha_emision']),format='DD/MM/YYYY')
-            campo('mostrar_condiciones','Incluir condiciones generales','toggle')
-            campo('condiciones','Condiciones comerciales','text_area',max_chars=5000,height=150)
-            campo('nombre_archivo','Nombre del archivo (sin extensión)',max_chars=180,
-                  help='Puedes conservar {folio} y {cliente}; se reemplazan al descargar.')
-            st.caption('Una condición por línea. Estos valores se editan solo para esta cotización.')
-            st.subheader('Datos para el pago')
-            campo('incluir_pago','Incluir datos de pago','toggle')
-            for nombre,etiqueta in CAMPOS_PAGO.items():
-                campo(nombre,etiqueta,grupo='pago',max_chars=LIMITES_PAGO[nombre])
-            st.caption('Se guardan solo en esta cotización y se incluyen al final del documento.')
-            if d['incluir_pago'] and not pago_para_documento(d):
-                st.info('Los datos de pago están incompletos. Puedes completar estos campos o generar la cotización sin esta sección.')
-        antiguo=st.button('Emitir y guardar cotización',key='emit_legacy_'+caso['id'])
-    with st.container(key='mfy_generate'):
-        generar=st.button('Generar cotización',type='primary',key='generate_'+caso['id'],width='stretch')
-    prueba=dict(datos_emision(d),snapshot=caso,numero=0,fecha_emision=d['fecha_emision'],total_clp=quote_total(d['base_clp'],d['descuento_pct'],d['iva_pct']))
-    with st.expander('Vista previa del documento',expanded=False):
-        st.caption('Borrador: el folio definitivo se asigna al generar la cotización.')
-        try:st.pdf(generar_pdf(prueba),height=700,key='preview_'+caso['id'],alt='Vista previa de la cotización')
-        except Exception:st.info('La vista previa no está disponible en este momento. Puedes conservar el borrador y reintentar.')
+    def atajo(tipo,anterior=None):
+        if tipo=='duplicar':
+            nuevo=duplicar_borrador(d,anterior)
+            d.clear();d.update(nuevo)
+            for key in list(st.session_state):
+                if key.startswith('cotedit_'+caso['id']+'_'):st.session_state.pop(key,None)
+            draft['reset_local']={k:str(uuid4()) for k in valores_texto(d)}
+            draft.update(pendiente=True,reintento=0);_guardar(repo,caso['id'],draft)
+        st.session_state['cot_tabs_'+caso['id']]='Revisar y generar' if tipo=='rapida' else 'Programa'
+    with st.expander('Atajos para preparar la propuesta'):
+        st.button('Cotización rápida',key='cot_rapida_'+caso['id'],on_click=atajo,args=('rapida',),
+                  help='Revisa la tarifa y el programa sugeridos antes de generar.')
+        st.button('Usar un programa de la biblioteca',key='cot_biblioteca_'+caso['id'],on_click=atajo,args=('biblioteca',))
+        if caso['id'] not in cache:cache[caso['id']]=repo.quotes(caso['id'])
+        versiones=cache[caso['id']]
+        if versiones:
+            previa=st.selectbox('Cotización para duplicar',versiones,format_func=lambda q:str(q.get('numero',''))+' · '+money(q['total_clp']),key='cot_duplicar_select_'+caso['id'])
+            st.button('Duplicar una cotización anterior',key='cot_duplicar_'+caso['id'],on_click=atajo,args=('duplicar',previa))
+    editor_col,preview_col=st.columns([2,1])
+    with editor_col:
+        with st.container(key='mfy_form_quote'):
+            titulo_seccion(2,'Tu propuesta a medida')
+            # Descartar la pestaña antigua conservada por una sesión abierta.
+            if st.session_state.get('cot_tabs_'+caso['id'])=='Vista previa':
+                st.session_state['cot_tabs_'+caso['id']]='Programa'
+            tabkey='cot_tabs_'+caso['id']
+            if st.session_state.get(tabkey) not in PASOS:st.session_state[tabkey]='Programa'
+            paso=PASOS.index(st.session_state[tabkey])
+            st.progress((paso+1)/5,text=f'Paso {paso+1} de 5 · {PASOS[paso]}')
+            if error_paso:=st.session_state.pop('cot_error_'+caso['id'],None):st.warning(error_paso)
+            programa,detalle,importes,condiciones,revisar=st.tabs(PASOS,key=tabkey,on_change='rerun')
+            with programa:
+                st.selectbox('Tarifa de referencia',[None,*opciones],key=llave,on_change=cambiar_tarifa,
+                    format_func=lambda x:('Recomendada · ' if recomendada and x==recomendada['id'] else '')+f"{opciones[x]['nombre']} · {money(opciones[x]['monto_clp'])}" if x else 'Cotización personalizada')
+                t=opciones.get(d.get('tarifa_id'))
+                if t:
+                    st.caption(f"Referencia: {t.get('participantes','—')} participantes · {t.get('horas','—')} horas. {t.get('fuente','')}")
+                    if t.get('participantes')!=caso.get('participantes') or float(t.get('horas',0))!=float(caso.get('horas') or 0):
+                        st.warning('La cantidad de participantes o las horas difieren de esta referencia. Ajusta el monto y el alcance antes de emitir.')
+                plantilla_opciones={p['id']:p for p in plantillas if p.get('activa',True)}
+                if d.get('plantilla_id') not in plantilla_opciones:d['plantilla_id']=None
+                seleccion=st.selectbox('Plantilla de programa',[None,*plantilla_opciones],index=[None,*plantilla_opciones].index(d.get('plantilla_id')),
+                    format_func=lambda x:plantilla_opciones[x]['nombre'] if x else 'Texto personalizado',key='plantilla_select_'+caso['id'])
+                if seleccion!=d.get('plantilla_id'):
+                    st.caption('La selección conserva tu edición actual hasta pulsar Cargar textos.')
+                    if st.button('Cargar textos de esta plantilla',key='load_tpl_'+caso['id']):
+                        d['plantilla_id']=seleccion;d['textos']=textos_plantilla(caso,t,plantilla_opciones.get(seleccion))
+                        plantilla_textos=(plantilla_opciones.get(seleccion) or {}).get('textos') or {}
+                        for lista in ('objetivos_especificos','momentos'):d[lista]=deepcopy(plantilla_textos.get(lista) or [])
+                        ampliar_borrador(d,caso)
+                        for k in SECCIONES:draft.setdefault('reset_local',{})[k]=str(uuid4())
+                        for k in SECCIONES:st.session_state.pop(f"cotedit_{caso['id']}_{k}",None)
+                        draft.update(pendiente=True,reintento=0);_guardar(repo,caso['id'],draft);st.rerun()
+                origen=textos_plantilla(caso,t,plantilla_opciones.get(d.get('plantilla_id')))
+                campo('fecha_emision','Fecha de emisión','date_input',format='DD/MM/YYYY')
+                campo('cliente','Cliente *',max_chars=180)
+                campo('servicio','Servicio de la propuesta *',max_chars=180)
+            with detalle:
+                a,b,c=st.columns(3)
+                with a:campo('modalidad','Modalidad de la propuesta','selectbox',options=['Presencial','Online','Híbrida','Por definir'])
+                with b:campo('participantes','Participantes de la propuesta','number_input',min_value=1,max_value=10000)
+                with c:campo('horas','Horas de la propuesta','number_input',min_value=.5,max_value=1000.0,step=.5)
+                campo('detalle_modalidad','Detalle de la modalidad *','text_area',max_chars=1000,height=100,
+                      help='Por ejemplo: presencial, dos jornadas de cuatro horas en las oficinas del cliente.')
+                campo('detalle','Detalle incluido en la propuesta (opcional)','text_area',max_chars=5000,height=130,
+                      help='Opcional. Si queda vacío, el documento usa el servicio y el detalle de la modalidad.')
+            with programa:
+                for k,label in SECCIONES.items():
+                    if k=='incluye':continue
+                    campo(k,'Incluir '+label.lower(),'toggle',grupo='mostrar')
+                    # El interruptor afecta al documento, nunca borra ni oculta la edición.
+                    etiqueta={'objetivos':'Objetivo general','metodologia':'Frase introductoria de metodología','descripcion':'Descripción del servicio'}.get(k,label)
+                    campo(k,etiqueta,'text_area',grupo='textos',max_chars=5000,height=100)
+                    st.button('Restablecer al texto de la plantilla',key='reset_'+caso['id']+k,
+                        on_click=_restablecer,args=(repo,caso['id'],k,origen[k],
+                            'objetivos_especificos' if k=='objetivos' else 'momentos' if k=='metodologia' else None,
+                            ((plantilla_opciones.get(d.get('plantilla_id')) or {}).get('textos') or {}).get('objetivos_especificos' if k=='objetivos' else 'momentos',[])))
+                    if k in ('objetivos','metodologia'):
+                        from paginas.listas_propuesta import editar_lista
+                        st.caption('Objetivos específicos' if k=='objetivos' else 'Momentos metodológicos')
+                        editar_lista(repo,caso['id'],draft,'objetivos_especificos' if k=='objetivos' else 'momentos',_guardar)
+                campo('jornadas_duracion','Jornadas y duración',max_chars=1000)
+            with importes:
+                st.markdown('<span id="cot-importes"></span>',unsafe_allow_html=True)
+                a,b,c=st.columns(3)
+                with a:campo('base_clp','Valor base (CLP)','number_input',min_value=0,max_value=100000000000,step=1000)
+                with b:campo('descuento_pct','Descuento (%)','number_input',min_value=0.0,max_value=100.0,step=.5)
+                with c:
+                    key='cotedit_'+caso['id']+'_exento'
+                    if key not in st.session_state:st.session_state[key]=d['iva_pct']==0
+                    st.toggle('Exento de IVA',key=key,on_change=_editar,args=(repo,caso['id'],'exento'))
+                campo('item_descripcion','Descripción del ítem 1','text_area',max_chars=5000,height=100)
+                campo('descuento_motivo','Motivo del descuento',max_chars=500)
+                campo('descuento_periodo','Período del descuento (opcional)',max_chars=500)
+                campo('incluye','Incluir qué incluye','toggle',grupo='mostrar')
+                campo('incluye','Qué incluye','text_area',grupo='textos',max_chars=5000,height=150)
+                st.button('Restablecer al texto de la plantilla',key='reset_'+caso['id']+'incluye',
+                          on_click=_restablecer,args=(repo,caso['id'],'incluye',origen['incluye']))
+                st.metric('Total de la propuesta (CLP)',money(_total(d)))
+                st.caption('Los descuentos son manuales. La versión conservará estos valores al generar.')
+            with condiciones:
+                campo('valida_hasta','Válida hasta','date_input',min_value=date.fromisoformat(d['fecha_emision']),format='DD/MM/YYYY')
+                campo('mostrar_condiciones','Incluir condiciones generales','toggle')
+                campo('condiciones','Condiciones comerciales','text_area',max_chars=5000,height=150)
+                campo('nombre_archivo','Nombre del archivo (sin extensión)',max_chars=180,
+                      help='Puedes conservar {folio} y {cliente}; se reemplazan al descargar.')
+                st.caption('Una condición por línea. Estos valores se editan solo para esta cotización.')
+                st.subheader('Datos para el pago')
+                campo('incluir_pago','Incluir datos de pago','toggle')
+                for nombre,etiqueta in CAMPOS_PAGO.items():
+                    campo(nombre,etiqueta,grupo='pago',max_chars=LIMITES_PAGO[nombre])
+                st.caption('Se guardan solo en esta cotización y se incluyen al final del documento.')
+                if d['incluir_pago'] and not pago_para_documento(d):
+                    st.info('Los datos de pago están incompletos. Puedes completar estos campos o generar la cotización sin esta sección.')
+            with revisar:
+                st.write('Revisa la propuesta antes de generar los documentos.')
+                for etiqueta,_ in falta:st.warning(etiqueta+' pendiente.')
+                antiguo=st.button('Emitir y guardar cotización',key='emit_legacy_'+caso['id'])
+        with st.container(key='mfy_generate'):
+            st.markdown('<div class="mfy-quote-total">Total de la propuesta · <strong>'+money(_total(d))+'</strong></div>',unsafe_allow_html=True)
+            generar=st.button('Generar cotización',type='primary',key='generate_'+caso['id'],width='stretch')
+    # Vista ligera del contenido, sin ejecutar los generadores de PDF/Word.
+    with preview_col,st.container(key='mfy_quote_summary'):
+        st.caption('Vista previa del contenido · El PDF y el Word se crean al generar.')
+        st.markdown('<aside class="mfy-quote-summary"><strong>'+escape(str(d['cliente']))+'</strong><p>'+escape(str(d['servicio']))+'</p><p>'+escape(str(d.get('detalle_modalidad','')))+' · '+escape(str(d.get('item_descripcion','')) or d.get('detalle',''))+'</p><p>'+escape(str(d.get('condiciones','')))+'</p><small>'+('Datos para el pago incluidos' if pago_para_documento(d) else 'Sin sección de pago')+'</small></aside>',unsafe_allow_html=True)
+        with st.expander('Vista previa del documento'):
+            for clave,etiqueta in SECCIONES.items():
+                if d.get('mostrar',{}).get(clave,True):
+                    st.write(etiqueta);st.text(d.get('textos',{}).get(clave,''))
+            for item in d.get('objetivos_especificos',[]):st.text(item.get('texto',''))
+            for item in d.get('momentos',[]):st.text(item.get('etiqueta','')+' · '+item.get('descripcion',''))
+            st.caption('Participantes: '+str(d['participantes'])+' · Horas: '+str(d['horas']))
+            pago=pago_para_documento(d)
+            if pago:
+                st.write('Datos para el pago')
+                for clave,etiqueta in CAMPOS_PAGO.items():st.text(etiqueta+': '+str(d['pago'].get(clave,'')))
+    def navegar(destino):
+        st.session_state[tabkey]=PASOS[destino]
+    def avanzar():
+        destinos={'cliente':0,'servicio':0,'detalle_modalidad':1,'importes':2,'condiciones':3}
+        errores=[label for label,dest in faltantes(caso,d) if destinos.get(dest)==paso]
+        if errores:st.session_state['cot_error_'+caso['id']]='Antes de continuar, completa: '+', '.join(errores)
+        else:navegar(min(4,paso+1))
+    anterior,siguiente=st.columns(2)
+    anterior.button('Atrás',key='cot_atras_'+caso['id'],disabled=paso==0,on_click=navegar,args=(max(0,paso-1),))
+    siguiente.button('Siguiente',key='cot_siguiente_'+caso['id'],disabled=paso==4,on_click=avanzar)
+    prueba=dict(datos_emision(d),snapshot=caso,numero=0,fecha_emision=d['fecha_emision'],total_clp=_total(d))
     if generar or antiguo:
         if falta:
             st.error('Completa los datos indicados antes de generar. Tu borrador se conserva.');return
@@ -258,6 +326,8 @@ def editor_cotizacion(repo,caso):
             q=repo.issue_quote(caso,datos_emision(d),draft['operacion'])
             # Algunos repositorios históricos no devolvían fila; recupera por operación.
             if not q:q=next(q for q in repo.quotes(caso['id']) if q.get('operacion_id')==draft['operacion'])
+            from paginas.acciones_cotizacion import archivos
+            archivos(repo,q)
             if hasattr(repo.client,'storage'):
                 try:
                     from servicios.documentos_caso import DocumentosCaso

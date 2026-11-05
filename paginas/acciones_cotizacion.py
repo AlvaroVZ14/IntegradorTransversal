@@ -42,23 +42,26 @@ def archivos(repo,q):
 def descargas(repo,q,prefijo='hist'):
     require_admin(repo)
     try:
-        word,pdf=archivos(repo,q)
+        # Streamlit 1.65 admite datos diferidos: no ejecuta el generador al
+        # pintar versiones ni durante la edición de un borrador.
+        usuario=repo.user.id
+        snapshot=json.dumps(documento_descarga(q),sort_keys=True,default=str)
         a,b=st.columns(2)
-        a.download_button('Descargar Word',word,file_name=nombre_archivo(q,'docx'),mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',key=prefijo+'_word_'+q['id'])
-        b.download_button('Descargar PDF',pdf,file_name=nombre_archivo(q),mime='application/pdf',key=prefijo+'_pdf_'+q['id'])
-        from urllib.parse import quote,urlencode
-        asunto,texto=mensaje_cliente(q)
-        a.link_button('Redactar correo','mailto:'+quote(q['snapshot'].get('email',''),safe='@')+'?'+urlencode({'subject':asunto,'body':texto}))
-        with st.expander('Mensaje para WhatsApp'):
-            from utils.mensaje_listo import copiar_mensaje
-            st.text(texto)
-            copiar_mensaje(texto,prefijo+'_wa_copy_'+q['id'])
-            enlace=enlace_whatsapp(q['snapshot'].get('telefono',''),texto)
-            if enlace:st.link_button('Abrir WhatsApp',enlace,key=prefijo+'_wa_open_'+q['id'])
-            st.caption('Adjunta el documento descargado a mano. Abrir el enlace no envía el mensaje.')
+        a.download_button('Descargar Word',lambda:_archivos(usuario,snapshot)[0],file_name=nombre_archivo(q,'docx'),mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',key=prefijo+'_word_'+q['id'])
+        b.download_button('Descargar PDF',lambda:_archivos(usuario,snapshot)[1],file_name=nombre_archivo(q),mime='application/pdf',key=prefijo+'_pdf_'+q['id'])
     except Exception:
         st.warning('No pudimos preparar los documentos. La versión sigue guardada; puedes reintentar la descarga.')
-    st.button('Enviar al cliente',key=prefijo+'_send_'+q['id'],on_click=_abrir_dialogo,args=('envio',q))
+    with st.popover('Enviar',icon=':material/send:'):
+        from urllib.parse import quote,urlencode
+        from utils.mensaje_listo import copiar_mensaje
+        asunto,texto=mensaje_cliente(q)
+        st.link_button('Redactar correo','mailto:'+quote(q['snapshot'].get('email',''),safe='@')+'?'+urlencode({'subject':asunto,'body':texto}),key=prefijo+'_mailto_'+q['id'])
+        st.button('Enviar correo desde la app',key=prefijo+'_send_'+q['id'],on_click=_abrir_dialogo,args=('envio',q))
+        enlace=enlace_whatsapp(q['snapshot'].get('telefono',''),texto)
+        if enlace:st.link_button('Mensaje para WhatsApp',enlace,key=prefijo+'_wa_open_'+q['id'])
+        copiar_mensaje(texto,prefijo+'_wa_copy_'+q['id'])
+        st.button('Registrar envío por WhatsApp',key=prefijo+'_register_wa_'+q['id'],on_click=_abrir_dialogo,args=('envio',q))
+        st.caption('Abrir o copiar el mensaje no lo envía. Confirma el envío después de adjuntar el documento.')
 
 
 @st.dialog('Enviar cotización al cliente',width='large',on_dismiss=_cerrar_dialogo)
@@ -165,7 +168,8 @@ def dialogo_aceptar(repo,caso,q):
 @st.dialog('Marcar cotización como rechazada',on_dismiss=_cerrar_dialogo)
 def dialogo_rechazar(repo,caso,q):
     require_admin(repo)
-    motivo=st.selectbox('Motivo (opcional)',['','Precio','Fecha','Eligió otra empresa','Otro'])
+    from servicios.flujo_cotizaciones import MOTIVOS_RECHAZO
+    motivo=st.selectbox('Motivo (opcional)',['',*MOTIVOS_RECHAZO])
     nota=st.text_area('Detalle opcional',max_chars=500)
     if st.button('Confirmar rechazo',type='primary'):
         op=st.session_state.setdefault('rechazo_op_'+q['id'],str(uuid4()))

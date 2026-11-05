@@ -17,6 +17,7 @@ from servicios.lecturas_locales import leer_con_respaldo
 from servicios.en_vivo import cargar, carga_inicial
 from utils.en_vivo import indicador as indicador_en_vivo
 from ui.estados import (chip_estado,clase_estado,etiqueta_con_icono,estado_cotizacion,vigencia_cotizacion)
+from servicios.flujo_cotizaciones import filtrar_registro,siguiente_paso,comparar_versiones
 
 
 def _lectura(repo,clave,consulta):
@@ -43,7 +44,7 @@ def quote_history(quotes,repo=None,case=None,eventos=None):
         try:eventos=_lectura(repo,'eventos:'+case['id'],lambda:repo.quote_events(case['id']))
         except Exception:pass
     eventos=eventos or []
-    for q in quotes:
+    for indice,q in enumerate(quotes):
         expired = date.fromisoformat(q["valida_hasta"]) < today()
         label = f"{code(q, 'COT')} · {money(q['total_clp'])} · {'Vencida' if expired else 'Vigente'}"
         with st.expander(label, expanded=q == quotes[0]):
@@ -51,19 +52,29 @@ def quote_history(quotes,repo=None,case=None,eventos=None):
             if visual:st.markdown(chip_estado(visual,'cotizacion'),unsafe_allow_html=True)
             else:st.caption('Generada · Sin envío registrado')
             st.caption(vigencia_cotizacion(q))
+            if indice+1<len(quotes):
+                diferencia,items=comparar_versiones(q,quotes[indice+1])
+                st.caption('Frente a la versión anterior: '+('+' if diferencia>0 else '')+money(diferencia)+
+                           (' · Cambios en: '+', '.join(items) if items else ' · Mismos ítems y alcance.'))
+            envio=next((e for e in eventos if e.get('cotizacion_id')==q['id'] and e.get('tipo')=='envio' and not e.get('deshecho_en')),None)
+            if envio:st.caption('Enviada el '+pd.to_datetime(envio['created_at'],utc=True).tz_convert('America/Santiago').strftime('%d/%m/%Y')+' por '+str(envio.get('datos',{}).get('canal','')))
             st.caption(f"Emitida el {date.fromisoformat(q['fecha_emision']):%d/%m/%Y} · Válida hasta {date.fromisoformat(q['valida_hasta']):%d/%m/%Y}")
-            st.text(q["detalle"])
-            a,b,c = st.columns(3)
-            a.metric("Valor base",money(q["base_clp"]))
-            b.metric("Descuento",f"{q['descuento_pct']}%")
-            c.metric("Total CLP",money(q["total_clp"]))
-            st.caption("Exento de IVA" if q["iva_pct"] == 0 else "Total incluye IVA de 19%")
-            st.text(q["condiciones"])
+            with st.expander('Ver detalle de valores y condiciones'):
+                st.text(q["detalle"])
+                a,b,c = st.columns(3)
+                a.metric("Valor base",money(q["base_clp"]))
+                b.metric("Descuento",f"{q['descuento_pct']}%")
+                c.metric("Total CLP",money(q["total_clp"]))
+                st.caption("Exento de IVA" if q["iva_pct"] == 0 else "Total incluye IVA de 19%")
+                st.text(q["condiciones"])
             try:
                 if repo is not None:
-                    from paginas.acciones_cotizacion import archivos
-                    _,pdf=archivos(repo,q)
-                else:pdf=generar_pdf(q)
+                    from paginas.acciones_cotizacion import _archivos
+                    import json
+                    from servicios.documentos_cotizacion import documento_descarga
+                    usuario=repo.user.id;snapshot=json.dumps(documento_descarga(q),sort_keys=True,default=str)
+                    pdf=lambda usuario=usuario,snapshot=snapshot:_archivos(usuario,snapshot)[1]
+                else:pdf=lambda q=q:generar_pdf(q)
                 st.download_button("Descargar cotización", data=pdf, file_name=nombre_archivo(q), mime="application/pdf", key=f"download_{q['id']}")
             except Exception:
                 st.warning('No pudimos preparar el PDF. La cotización sigue guardada; vuelve a intentar la descarga.')
@@ -191,14 +202,21 @@ def _listado_casos(repo):
     filtro_previo=st.session_state.get('casos_estado_filtro','Todos los estados')
     # Una sola lectura: los filtros de acción necesitan cotizaciones/pagos y
     # reutilizan el snapshot de Hoy, que también contiene el registro completo.
-    vista='hoy' if filtro_previo in FILTROS_ACCION else 'casos'
+    # El mismo snapshot agrupa casos, propuestas y ventas: permite ordenar por
+    # el importe real sin una consulta por fila.
+    vista='hoy'
     with carga_inicial(vista, 'Buscando tus casos…'):
         lectura = cargar(repo, vista)
     if 'datos' not in lectura:
         indicador_en_vivo('casos', publicar=True, pausado=bool(st.session_state.get('caso_abierto')))
         st.info('Aún no pudimos conectar. El listado aparecerá cuando vuelva la conexión.')
         return
-    cases = lectura['datos']['casos']
+    importes={}
+    for q in sorted(lectura['datos'].get('cotizaciones',[]),key=lambda q:(q.get('fecha_emision',''),q.get('numero',0))):
+        importes[q['caso_id']]=int(q['total_clp'])
+    for v in lectura['datos'].get('ventas',[]):
+        if not v.get('anulada'):importes[v['caso_id']]=int(v['monto_clp'])
+    cases = [{**c,'importe_registro':importes.get(c['id'])} for c in lectura['datos']['casos']]
     indicador_en_vivo('casos', publicar=True, pausado=bool(st.session_state.get('caso_abierto')))
     st.write("")
     a,b = st.columns([2,1])
@@ -215,14 +233,35 @@ def _listado_casos(repo):
     from utils.componentes import leyenda_estados
     leyenda_estados()
     if state in FILTROS_ACCION:
-        cases=casos_por_accion(lectura['datos'],state)
+        cases=[{**c,'importe_registro':importes.get(c['id'])} for c in casos_por_accion(lectura['datos'],state)]
     filtered = [c for c in cases if (state in ('Todos los estados',*FILTROS_ACCION) or c["estado"] == state)
                 and search.casefold() in f"{c['cliente']} {c['servicio']} {code(c)}".casefold()]
+    with st.expander('Más filtros'):
+        filtros={}
+        for campo,label in [('tematica','Temática'),('modalidad','Modalidad'),('origen','Origen'),('canal_captacion','Canal')]:
+            opciones=sorted({str(c[campo]) for c in cases if c.get(campo)})
+            filtros[campo]=st.multiselect(label,opciones,key='registro_'+campo)
+        a,b=st.columns(2)
+        desde=a.date_input('Desde',value=None,format='DD/MM/YYYY',key='registro_desde')
+        hasta=b.date_input('Hasta',value=None,format='DD/MM/YYYY',key='registro_hasta')
+    orden=st.selectbox('Ordenar por',['Más recientes','Más antiguos','Monto mayor','Monto menor'],key='registro_orden',
+                       help='Monto de la venta vigente o, si no existe, de la última cotización. Sin importe aparece al final.')
+    if desde and hasta and desde>hasta:
+        st.warning('Desde no puede ser posterior a Hasta. Corrige las fechas para ver el listado.');return
+    filtered=filtrar_registro(filtered,filtros,desde,hasta,orden)
     if not filtered:
         st.info("No hay casos que mostrar. Crea una solicitud o ajusta los filtros.")
         return
     frame = case_table(filtered)
-    tabla_registros(frame)
+    firma=(search,state,str(filtros),str(desde),str(hasta),orden)
+    if st.session_state.get('registro_firma')!=firma:
+        st.session_state.registro_firma=firma;st.session_state.registro_pagina=1
+    paginas=max(1,(len(filtered)+19)//20)
+    st.session_state.registro_pagina=min(st.session_state.get('registro_pagina',1),paginas)
+    pagina=st.number_input('Página',min_value=1,max_value=paginas,step=1,key='registro_pagina')
+    visibles=filtered[(pagina-1)*20:pagina*20]
+    st.caption(f'Página {pagina} de {paginas} · {len(filtered)} casos')
+    tabla_registros(case_table(visibles))
     if repo.is_owner:
         st.download_button("Exportar listado CSV",csv_bytes(frame),file_name="casos-mente-y-futuro.csv",mime="text/csv")
     st.divider()
@@ -232,6 +271,27 @@ def _listado_casos(repo):
     st.selectbox("Abrir detalle",list(options),index=None,placeholder='Selecciona un caso',
                  format_func=lambda x:f"{code(options[x])} · {options[x]['cliente']}",
                  key="selected_case",on_change=_abrir_detalle)
+    with st.expander('Acciones rápidas por caso'):
+        for caso in visibles:
+            st.write(code(caso)+' · '+str(caso.get('cliente') or 'Por completar'))
+            a,b,c=st.columns(3)
+            a.button('Ver',key='ver_'+caso['id'],on_click=_ir_caso,args=(caso['id'],None))
+            b.button('Cotizar',key='cotizar_'+caso['id'],on_click=_ir_caso,args=(caso['id'],'Cotizaciones'),
+                     disabled=caso['estado'] in ('Vendido','En ejecución','Finalizado','Cancelado'))
+            with c.popover('Contactar'):
+                from servicios.envio_cotizacion import enlace_whatsapp
+                from urllib.parse import quote,urlencode
+                texto=f"Hola {caso.get('contacto') or ''}, te escribo por tu solicitud {code(caso)} de {caso.get('servicio') or 'capacitación'}. Quedo atenta a tus comentarios."
+                enlace=enlace_whatsapp(caso.get('telefono',''),texto)
+                if enlace:st.link_button('Abrir WhatsApp',enlace)
+                if caso.get('email'):st.link_button('Redactar correo','mailto:'+quote(caso['email'],safe='@')+'?'+urlencode({'subject':'Solicitud '+code(caso),'body':texto}))
+                st.caption('Revisa el mensaje antes de enviarlo. Abrirlo no registra un envío.')
+
+
+def _ir_caso(cid,pestana):
+    st.session_state.selected_case=cid;st.session_state.caso_abierto=cid
+    st.session_state.caso_navegar=True
+    if pestana:st.session_state['caso_pestana_'+cid]=pestana
 
 
 @st.fragment(run_every='60s')
@@ -251,15 +311,30 @@ def cases_content(repo):
     if not st.session_state.get('caso_abierto'):
         _listado_en_vivo(repo)
         return
-    # No se registra un timer de listado mientras hay un detalle abierto.
-    _listado_casos(repo)
+    # Mantener los filtros aunque sus widgets estén desmontados en el detalle.
+    for clave in list(st.session_state):
+        if clave in ('casos_busqueda','casos_estado_filtro','casos_chips_estados') or clave.startswith('registro_'):
+            st.session_state[clave]=st.session_state[clave]
+    # El detalle tiene su propia pantalla: conserva filtros del registro y evita
+    # desplazar otra vez toda la lista antes de llegar al caso abierto.
+    lectura=cargar(repo,'hoy')
+    opciones={c['id']:c for c in lectura.get('datos',{}).get('casos',[])}
+    if opciones:
+        with st.expander('Cambiar de caso'):
+            st.selectbox('Abrir detalle',list(opciones),index=None,
+                         format_func=lambda cid:code(opciones[cid])+' · '+str(opciones[cid].get('cliente') or 'Por completar'),
+                         key='selected_case',on_change=_abrir_detalle)
     seleccionado=st.session_state.get('caso_abierto')
     if not seleccionado:return
     st.button('Volver al listado',key='caso_volver_listado',on_click=_cerrar_detalle,
               icon=':material/arrow_back:')
     case = _lectura(repo, 'detalle:'+seleccionado, lambda:repo.get_case(seleccionado))
-    st.subheader(f"{code(case)} · {case.get('servicio') or 'Servicio por definir'}")
-    st.markdown('<div class="mfy-case-band '+clase_estado(case['estado'])+'">'+badge_estado(case['estado'])+'</div>',unsafe_allow_html=True)
+    with st.container(key='mfy_case_sticky'):
+        st.subheader(f"{code(case)} · {case.get('cliente') or 'Cliente por completar'}")
+        st.markdown('<div class="mfy-case-band '+clase_estado(case['estado'])+'">'+badge_estado(case['estado'])+'</div>',unsafe_allow_html=True)
+        accion,pestana,ayuda=siguiente_paso(case['estado'])
+        st.button(accion,key='caso_siguiente_'+case['id'],type='primary',on_click=_ir_caso,args=(case['id'],pestana))
+        st.caption('Siguiente paso: '+ayuda)
     from utils.canales import etiqueta_canal
     from utils.componentes import chips_activos
     chips_activos(['Canal · '+etiqueta_canal(case.get('canal_captacion'))])
@@ -270,6 +345,8 @@ def cases_content(repo):
     quotes = _lectura(repo,f"cotizaciones:{case['id']}",lambda:repo.quotes(case["id"]))
     try:eventos=_lectura(repo,'eventos:'+case['id'],lambda:repo.quote_events(case['id']))
     except Exception:eventos=[]
+    from ui.tema import hitos_caso
+    hitos_caso(case,quotes,eventos)
     if repo.is_owner:
         cotizar=st.session_state.pop('abrir_cotizacion',None)==case['id']
         if st.session_state.pop('abrir_datos_caso',False):cotizar=False
@@ -277,6 +354,7 @@ def cases_content(repo):
         tab_key='caso_pestana_'+case['id']
         if venta:st.session_state[tab_key]='Venta'
         elif cotizar:st.session_state[tab_key]='Cotizaciones'
+        st.markdown('<span class="mfy-case-tab-meta" data-datos="'+('pendiente' if case.get('datos_incompletos') else 'completo')+'" data-cotizacion="'+('pendiente' if not quotes or case['estado']=='Cotizado' else 'completo')+'"></span>',unsafe_allow_html=True)
         detail_tab, quote_tab, sale_tab, docs_tab = st.tabs(["Datos y seguimiento","Cotizaciones","Venta","Documentos"],key=tab_key,on_change='rerun')
         with detail_tab:
             edit_case(repo,case)
@@ -345,6 +423,8 @@ def tariffs_content(repo):
 
 def cases_page(repo):
     require_admin(repo)
+    from ui.tema import ESTILOS_COTIZACIONES
+    st.markdown(ESTILOS_COTIZACIONES,unsafe_allow_html=True)
     encabezado_pagina("Casos y cotizaciones", "Cada solicitud, su propuesta y el siguiente paso.", "SEGUIMIENTO", "▤", mostrar_metricas=False)
     if st.session_state.pop('abrir_opciones_portal',False):
         st.session_state.casos_pestana='Tarifas y servicios'

@@ -575,3 +575,44 @@ def encabezado_hoy(titulo,fecha,mensaje,nueva):
 
 def esqueleto_carga(cantidad=3):
     st.markdown(esqueletos(cantidad),unsafe_allow_html=True)
+
+
+# Reglas exclusivas del flujo de cotizaciones. Los selectores st-key corresponden
+# a contenedores propios, no a la estructura interna de Streamlit.
+ESTILOS_COTIZACIONES='<style>'+_compactar('''
+.st-key-mfy_case_sticky{position:sticky;top:64px;z-index:20;background:#F6F8FC;padding:12px;border:1px solid #CCCCFF;border-radius:12px}
+.mfy-case-milestones{display:flex;gap:12px;overflow-x:auto;padding:12px 0}
+.mfy-case-milestones>div{flex:1;min-width:110px;border-top:3px solid var(--s-s);padding:8px;color:#0B2545;background:white}
+.mfy-case-milestones small{display:block;color:#5B6B82}
+.mfy-quote-summary{padding:16px;border:1px solid #CCCCFF;border-radius:12px;background:white;overflow-wrap:anywhere}
+.mfy-quote-summary p{white-space:pre-line}
+.mfy-quote-total{color:#0B2545;padding:4px 0;text-align:right;overflow-wrap:anywhere}
+.st-key-mfy_form_quote{padding-bottom:12px}
+/* Pestañas nativas del detalle: prefijos visuales sin alterar sus claves/rutas. */
+[class*=st-key-caso_pestana_] [role=tab]:before{margin-right:6px}
+[class*=st-key-caso_pestana_] [role=tab]:nth-child(1):before{content:'▤'}
+[class*=st-key-caso_pestana_] [role=tab]:nth-child(2):before{content:'▧'}
+[class*=st-key-caso_pestana_] [role=tab]:nth-child(3):before{content:'$'}
+[class*=st-key-caso_pestana_] [role=tab]:nth-child(4):before{content:'▱'}
+.stMainBlockContainer:has(.mfy-case-tab-meta[data-datos=pendiente]) [class*=st-key-caso_pestana_] [role=tab]:nth-child(1):after,
+.stMainBlockContainer:has(.mfy-case-tab-meta[data-cotizacion=pendiente]) [class*=st-key-caso_pestana_] [role=tab]:nth-child(2):after{content:' · pendiente';font-size:12px;color:#6D38B6}
+.stMainBlockContainer:has(.mfy-quote-total){padding-bottom:180px}
+
+@media(max-width:767px){.st-key-mfy_case_sticky{padding:8px}.st-key-mfy_case_sticky h3{font-size:20px}.mfy-quote-total{text-align:center}}
+''')+'</style>'
+
+
+def hitos_caso(caso,cotizaciones,eventos):
+    """Solo fechas demostrables: no inventa hitos intermedios al cambiar estado."""
+    from servicios.flujo_cotizaciones import fecha_local
+    fechas={'Solicitud':caso.get('created_at')}
+    if cotizaciones:fechas['Cotizada']=min(q['fecha_emision'] for q in cotizaciones)
+    for e in sorted(eventos,key=lambda e:e.get('created_at','')):
+        if e.get('deshecho_en'):continue
+        estado={'aceptar':'Aceptada','vender':'En seguimiento','cierre':'Cerrada'}.get(e.get('tipo'))
+        if estado:fechas.setdefault(estado,e.get('created_at'))
+        if e.get('tipo')=='vender':fechas.setdefault('Aceptada',e.get('created_at'))
+    st.markdown('<div class="mfy-case-milestones" aria-label="Hitos del caso">'+''.join(
+        '<div class="'+clase_estado(estado)+'"><strong>'+escape(estado)+'</strong><small>'+
+        (fecha_local(fechas[estado]).strftime('%d/%m/%Y') if fechas.get(estado) else 'Sin hito registrado')+'</small></div>'
+        for estado in ('Solicitud','Cotizada','Aceptada','En seguimiento','Cerrada'))+'</div>',unsafe_allow_html=True)
