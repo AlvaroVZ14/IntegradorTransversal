@@ -90,10 +90,12 @@ def quote_history(quotes,repo=None,case=None,eventos=None):
         if repo is not None and st.session_state.get('cotizacion_lista')==q['id']:
             from paginas.acciones_cotizacion import descargas
             with st.container(key='mfy_quote_downloads'):
-                st.write('Cotización lista ✓')
-                descargas(repo,q,'lista')
-                if st.button('Cerrar aviso',key='close_ready_'+q['id']):
+                titulo,cerrar=st.columns(2)
+                titulo.write('Cotización lista ✓')
+                if cerrar.button('Cerrar aviso',icon=':material/close:',key='close_ready_'+q['id'],width='stretch'):
                     st.session_state.pop('cotizacion_lista',None);st.rerun()
+                st.caption('Los documentos siguen disponibles en el historial de cotizaciones.')
+                descargas(repo,q,'lista')
 
 
 def edit_case(repo, case):
