@@ -196,6 +196,26 @@ def _css_estados():
 
 ESTILOS_BASE='<style>'+_compactar(CSS_PORTAL+_css_estados())+CSS_VIDRIO+'</style>'
 
+# Solo el formulario compartido. Clases propias, sin selectores internos.
+ESTILOS_REDES_MARCA='<style>'+_compactar('''
+.mfy-brand-networks{max-width:720px;margin:20px auto;box-sizing:border-box;color:#0B2545}
+.mfy-brand-networks h3{font-size:18px;margin:0 0 8px}
+.mfy-brand-networks p{font-size:16px;margin:0 0 12px;color:#5B6B82}
+.mfy-brand-social-row{display:flex;flex-wrap:nowrap;gap:8px;align-items:center;max-width:100%}
+.mfy-brand-social{display:inline-flex;align-items:center;justify-content:center;flex:0 0 44px;width:44px;height:44px;min-height:44px;border-radius:50%;background:#EDF2FF;color:#3D6FE0!important;text-decoration:none;transition:transform .16s ease,color .16s ease}
+.mfy-brand-social svg{width:22px;height:22px;display:block}
+.mfy-brand-social:hover{color:#9966FF!important;transform:translateY(-2px)}
+.mfy-brand-social:focus-visible,.mfy-brand-site:focus-visible{outline:3px solid #3D6FE0;outline-offset:3px}
+.mfy-brand-site{display:inline-flex;align-items:center;min-height:44px;color:#3D6FE0!important}
+.mfy-brand-networks-encabezado{margin:0;display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.mfy-brand-networks-encabezado .mfy-brand-site{color:white!important}
+.mfy-brand-networks-confirmacion{text-align:center}
+.mfy-brand-networks-confirmacion .mfy-brand-social-row{justify-content:center}
+.mfy-brand-networks-pie{border-top:1px solid #CCCCFF;padding-top:16px}
+@media(max-width:767px){.mfy-brand-networks-encabezado{justify-content:flex-start}.mfy-brand-social-row{gap:8px}}
+@media(prefers-reduced-motion:reduce){.mfy-brand-social{transition:none}.mfy-brand-social:hover{transform:none}}
+''')+'</style>'
+
 # Solo Hoy: no aumenta el CSS descargado por formularios o páginas de cliente.
 _al_dia=color_estado('Pagado','pago')
 ESTILOS_HOY='<style>'+_compactar(r'''
@@ -501,6 +521,33 @@ def enlaces_publicos(config):
     if config.get('sitio_web'):
         enlaces.append(f'<a href="{escape(config["sitio_web"],quote=True)}" target="_blank" rel="noopener noreferrer">Volver al sitio ↗</a>')
     return '<nav class="mfy-public-links" aria-label="Contacto y redes">'+''.join(enlaces)+'</nav>' if enlaces else ''
+
+
+def redes_marca(marca, *, ubicacion='pie', incluir_sitio=False):
+    """Enlaces de la consultora, distintos de los campos de redes del cliente.
+
+    SVG locales y CSS común: no iframes, imágenes remotas ni scripts.
+    """
+    iconos={
+        'instagram':('Instagram','<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".7" fill="currentColor"/>'),
+        'facebook':('Facebook','<path d="M14 21v-8h3l.5-4H14V7c0-1 .5-2 2-2h2V2h-3c-3 0-5 2-5 5v2H7v4h3v8"/>'),
+        'youtube':('YouTube','<rect x="2" y="5" width="20" height="14" rx="4"/><path d="m10 9 6 3-6 3Z"/>'),
+        'linkedin':('LinkedIn','<rect x="2" y="2" width="20" height="20" rx="3"/><path d="M7 10v7m4 0v-7m0 3c0-4 6-4 6 0v4"/><circle cx="7" cy="7" r=".7" fill="currentColor"/>'),
+    }
+    enlaces=[]
+    for red,(nombre,trazo) in iconos.items():
+        url=marca.get('redes',{}).get(red)
+        if not url:continue
+        etiqueta=nombre+' de '+str(marca.get('nombre',''))
+        enlaces.append('<a class="mfy-brand-social" href="'+escape(url,quote=True)+'" target="_blank" rel="noopener noreferrer" aria-label="'+escape(etiqueta,quote=True)+'" title="'+escape(etiqueta,quote=True)+'"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+trazo+'</svg></a>')
+    titulo={'pie':'Conoce a '+str(marca.get('nombre','')),'confirmacion':'Mientras tanto, conócenos'}.get(ubicacion)
+    sitio=marca.get('sitio_web') if incluir_sitio else ''
+    if not enlaces and not sitio:return ''
+    return ('<section class="mfy-brand-networks mfy-brand-networks-'+escape(ubicacion,quote=True)+'" aria-label="Redes de '+escape(str(marca.get('nombre','')),quote=True)+'">'
+        +('<h3>'+escape(titulo)+'</h3>' if titulo else '')
+        +('<p>Charlas, talleres, capacitaciones y coaching</p>' if ubicacion=='pie' else '')
+        +('<nav class="mfy-brand-social-row" aria-label="Visita nuestras redes">'+''.join(enlaces)+'</nav>' if enlaces else '')
+        +('<a class="mfy-brand-site" href="'+escape(sitio,quote=True)+'" target="_blank" rel="noopener noreferrer">Volver al sitio ↗</a>' if sitio else '')+'</section>')
 
 
 @contextmanager

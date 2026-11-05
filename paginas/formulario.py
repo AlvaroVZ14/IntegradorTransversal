@@ -13,13 +13,15 @@ from servicios.solicitud_rapida import (cargar_catalogos,clientes_existentes,cue
  duplicados,sugerencias,sugerir_correo,formatear_rut,normalizar_telefono)
 from utils import formulario_borrador as respaldo
 from utils.formulario_config import CAMPOS,PASOS,OPCIONES,BLOQUEADOS,campos_paso
-from utils.componentes import html_contenido_encabezado,titulo_seccion,preparar_celebracion,enlaces_publicos,ilustracion
+from utils.componentes import html_contenido_encabezado,titulo_seccion,preparar_celebracion,ilustracion,redes_marca
+from servicios.marca import datos_publicos
 from servicios.redes_sociales import REDES,normalizar_red
 
 
 class Formulario:
     def __init__(self,repo):
         self.repo=repo;self.modo=servicio.modo_servidor(repo);self.interno=self.modo=='interno'
+        self.marca=datos_publicos()
         self.catalogo=servicio.catalogo_publico()
         self.b=respaldo.iniciar(self.modo,repo,self.catalogo);self.v=self.b['values']
         self.prefix=respaldo.prefijo(self.modo);self.scope=respaldo.contexto(self.modo,repo)
@@ -138,8 +140,7 @@ class Formulario:
                         # La marca vive en la barra superior común; conservar
                         # el hueco de enlaces evita modificar el contenido del formulario.
                         st.empty()
-                    with b:self.enlaces=st.empty()
-            else:self.enlaces=None
+                    with b:st.markdown(redes_marca(self.marca,ubicacion='encabezado',incluir_sitio=True),unsafe_allow_html=True)
             st.markdown('<div class="mfy-form-heading">'+html_contenido_encabezado('Cuéntanos qué necesita tu equipo',
                 'Una propuesta a tu medida comienza aquí.','SOLICITUDES','')+'</div>',unsafe_allow_html=True)
             st.markdown(ilustracion('equipo','mfy-hero-principal'),unsafe_allow_html=True)
@@ -300,10 +301,14 @@ class Formulario:
                 st.button('Abrir caso',on_click=self.abrir,args=(caso,False),width='stretch')
                 st.button('Cotizar',on_click=self.abrir,args=(caso,True),disabled=bool(falta),width='stretch')
             else:st.button('Enviar solicitud',key=self.prefix+'enviada',disabled=True,width='stretch')
+            if not self.interno:
+                st.markdown(redes_marca(self.marca,ubicacion='confirmacion'),unsafe_allow_html=True)
             if st.button('Registrar otra solicitud' if self.interno else 'Enviar otra solicitud',key=self.prefix+'otra',width='stretch'):
                 st.session_state.formulario_recibos.pop(self.scope,None);st.rerun()
 
     def render(self,volver_a_app=False):
+        from ui.tema import ESTILOS_REDES_MARCA
+        st.markdown(ESTILOS_REDES_MARCA,unsafe_allow_html=True)
         with st.container(key='mfy_formulario_interno' if self.interno else 'mfy_public'):
             self.cabecera()
             recibo=st.session_state.get('formulario_recibos',{}).get(self.scope)
@@ -317,11 +322,11 @@ class Formulario:
                 self.acciones()
                 st.caption('El borrador se conserva en esta sesión y, si tu navegador lo permite, en esta pestaña hasta 24 horas. No se envía hasta confirmar.')
             config=configuracion_publica()
-            if self.enlaces is not None:self.enlaces.markdown(enlaces_publicos(config),unsafe_allow_html=True)
+            st.markdown(redes_marca(self.marca,ubicacion='pie'),unsafe_allow_html=True)
             if not self.interno:
                 privacidad=config.get('politica_privacidad')
                 if privacidad:st.markdown(f'<p class="mfy-public-contact"><a href="{escape(privacidad,quote=True)}" target="_blank" rel="noopener noreferrer">Política de privacidad</a></p>',unsafe_allow_html=True)
-                correo=config.get('correo_contacto')
+                correo=self.marca.get('correo_contacto')
                 if correo:
                     from urllib.parse import quote
                     st.markdown(f'<p class="mfy-public-contact">También puedes escribirnos a <a href="mailto:{quote(correo,safe="@.")}">{escape(correo)}</a>.</p>',unsafe_allow_html=True)
