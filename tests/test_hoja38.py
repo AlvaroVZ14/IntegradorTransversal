@@ -26,6 +26,18 @@ class Hoja:
     def registro(self,filas,validar):validar();self.registros+=filas
 
 class Hoja38Tests(unittest.TestCase):
+    def test_secciones_reales_de_streamlit_sin_deepcopy(self):
+        from streamlit.runtime.secrets import AttrDict
+        original=AttrDict({'hoja':{'activada':True,'database_url':'conexion_ficticia','id':'ID_FICTICIO_12345',
+            'google':{'client_email':'informes@example.test','private_key':'CLAVE_FICTICIA'}}})
+        with patch.dict('os.environ',{},clear=True),patch('streamlit.secrets',original):
+            resultado=configuracion()
+        self.assertTrue(resultado['activada'])
+        self.assertIsInstance(resultado['google'],dict)
+        self.assertEqual(resultado['google']['private_key'],'CLAVE_FICTICIA')
+        resultado['google']['private_key']='MODIFICADA'
+        self.assertEqual(original['hoja']['google']['private_key'],'CLAVE_FICTICIA')
+
     def test_contrato_privado_falla_cerrado(self):
         d=datos();d['Casos'][0]['rut']='12.345.678-5'
         with self.assertRaises(FalloHoja):matrices(d)

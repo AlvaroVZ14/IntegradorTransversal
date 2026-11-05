@@ -36,7 +36,9 @@ def panel_hoja(repo):
         else:st.info('La conexión con la hoja está pendiente de activar.')
     local=estado_local()
     if not local.get('configurada') and not datos.get('integrada'):
-        st.caption('Podrás ver aquí su actualización cuando terminemos de conectarla.')
+        if local.get('aviso'):
+            st.error('No pudimos iniciar la conexión con la hoja. Revisa sus credenciales en los secretos de Streamlit; tus datos siguen guardados.')
+        else:st.caption('Podrás ver aquí su actualización cuando terminemos de conectarla.')
         return
     pendientes=int(datos.get('pendientes',0))
     if datos.get('actualizando'):

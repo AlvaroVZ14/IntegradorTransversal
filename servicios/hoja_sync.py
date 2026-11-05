@@ -3,7 +3,6 @@
 No se llama desde pantallas de cliente. No escribe en tablas comerciales.
 No imprime respuestas, DSN, JSON de Google ni excepciones de proveedores.
 """
-from copy import deepcopy
 from datetime import date,datetime,timezone
 import json
 import os
@@ -32,8 +31,10 @@ def configuracion(entorno=None):
                    id=env.get('HOJA_ID',''),url=env.get('HOJA_URL',''),google=json.loads(env.get('HOJA_GOOGLE_JSON','{}')))
     elif entorno is None:
         import streamlit as st
-        try:datos=deepcopy(dict(st.secrets.get('hoja',{})))
-        except Exception:datos={}
+        # AttrDict de Streamlit no admite deepcopy de secciones anidadas.
+        # Materializar cada sección evita recursión y no modifica st.secrets.
+        try:datos=dict(st.secrets.get('hoja',{}))
+        except (FileNotFoundError,st.errors.StreamlitSecretNotFoundError):datos={}
         if isinstance(datos.get('google'),str):datos['google']=json.loads(datos['google'])
         elif datos.get('google'):datos['google']=dict(datos['google'])
     else:datos={}
