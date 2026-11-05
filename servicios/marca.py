@@ -1,6 +1,6 @@
 """Única fuente de datos públicos de marca para el formulario (sin secretos).
 
-Pendiente de confirmar con la dueña: Facebook, YouTube y LinkedIn.
+Pendiente de confirmar con la dueña: YouTube y LinkedIn.
 Mantener sus valores vacíos hasta recibir las URLs oficiales; no son enlaces
 de ejemplo ni se deben reemplazar por búsquedas o perfiles supuestos.
 """
@@ -11,7 +11,7 @@ SITIO_WEB='https://menteyfuturo.cl'
 CORREO_CONTACTO='contacto@menteyfuturo.cl'
 REDES={
     'instagram':'https://www.instagram.com/menteyfuturospa/',
-    'facebook':'',  # TODO: confirmar URL oficial de Facebook.
+    'facebook':'https://www.facebook.com/menteyfuturo',
     'youtube':'',   # TODO: confirmar URL oficial de YouTube.
     'linkedin':'',  # TODO: confirmar URL oficial de LinkedIn.
 }

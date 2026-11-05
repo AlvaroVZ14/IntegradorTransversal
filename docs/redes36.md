@@ -35,18 +35,20 @@ Los únicos valores públicos están en `servicios/marca.py`:
 - Sitio y correo: los indicados en el prompt.
 - Instagram: URL construida a partir del usuario entregado, con conexión
   segura y sin parámetros de seguimiento.
-- **Facebook: falta la URL oficial.** Marcador TODO y valor vacío.
+- Facebook: enlace confirmado por el usuario; se quitaron los parámetros de
+  redirección y el fragmento vacío. El destino canónico vive solo en marca.py.
 - **YouTube: falta la URL oficial.** Marcador TODO y valor vacío.
 - **LinkedIn: falta la URL oficial.** Marcador TODO y valor vacío.
 
-Se pidió confirmar las tres direcciones; no se adivinaron perfiles. Hasta
-recibirlas, los tres íconos permanecen ocultos. Para completarlos basta
+Se confirmó Facebook después de la entrega inicial; no se adivinaron perfiles.
+YouTube y LinkedIn permanecen ocultos. Para completarlos basta
 actualizar las entradas correspondientes en ese archivo y publicar el cambio.
 
 Comprobación externa: la herramienta web pudo consultar el sitio indicado;
 Instagram devolvió «Failed to fetch / Cache miss», así que **no se da por
-verificada la disponibilidad ni la titularidad del perfil**. Facebook, YouTube
-y LinkedIn no se probaron contra sitios reales porque faltan sus direcciones.
+verificada la disponibilidad ni la titularidad del perfil**. Facebook fue
+confirmado por el usuario; YouTube y LinkedIn no se probaron contra sitios
+reales porque faltan sus direcciones.
 El correo se conserva como contacto; no se enviaron mensajes de prueba.
 
 ## Diseño, accesibilidad y privacidad
@@ -90,8 +92,8 @@ El navegador automatizado no estuvo disponible: «The browser access host is
 unavailable». No se tomaron capturas ni se presentan como aprobadas las
 pruebas visuales de 375, 768 y 1280 px.
 
-1. Abre el formulario público en esos anchos. Debe verse Instagram en el
-   encabezado y en el pie, sin que aparezcan los tres íconos pendientes.
+1. Abre el formulario público en esos anchos. Deben verse Instagram y Facebook
+   en el encabezado y en el pie; YouTube y LinkedIn siguen ocultos.
 2. Toca el ícono: debe abrir otra pestaña y conservar lo escrito en la app.
    Vuelve y comprueba también el tooltip con mouse y el foco con Tab.
 3. Envía una solicitud ficticia con consentimiento. Debe aparecer el mismo
