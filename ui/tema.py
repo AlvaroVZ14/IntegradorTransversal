@@ -196,6 +196,43 @@ def _css_estados():
 
 ESTILOS_BASE='<style>'+_compactar(CSS_PORTAL+_css_estados())+CSS_VIDRIO+'</style>'
 
+# Solo Hoy: no aumenta el CSS descargado por formularios o páginas de cliente.
+_al_dia=color_estado('Pagado','pago')
+ESTILOS_HOY='<style>'+_compactar(r'''
+.stApp:has([data-vista=HOY]) :is(.st-key-mfy_sesion_cookie,.st-key-mfy_top_navigation_accessibility,.st-key-mfy_limpiar_borrador,[class*=st-key-mfy_apariencia_],[class*=st-key-mfy_live_hoy_]){position:absolute!important;max-height:0;overflow:hidden}
+.st-key-mfy_page_header:has([data-vista=HOY]){min-height:200px;padding:20px 24px}
+.st-key-mfy_page_header:has([data-vista=HOY]) .stVerticalBlock{gap:8px}
+.st-key-mfy_page_header:has([data-vista=HOY]) button[kind=primary]{background:#FFCC00!important;color:#0B2545!important;min-height:44px}
+.st-key-mfy_page_header:has([data-vista=HOY]) button[kind=primary] :is(p,span){color:#0B2545!important}
+.mfy-action-marker{display:none}.stElementContainer:has(.mfy-action-marker){display:none}
+[class*=st-key-mfy_hoy_accion_] button{min-height:132px;border-top:0;border-radius:16px;transition:transform 160ms,box-shadow 160ms}
+[class*=st-key-mfy_hoy_accion_] button:hover{transform:translateY(-2px);box-shadow:0 8px 22px #0B254518}
+[class*=st-key-mfy_hoy_accion_] button [data-testid=stIconMaterial]{font-size:32px;padding:12px;border-radius:50%;background:#FFFFFF90}
+[class*=st-key-mfy_hoy_accion_] button strong{font-size:34px}
+.st-key-mfy_hoy_accion_solicitudes button{background:#EAF1FF;border-color:#6699FF}
+.st-key-mfy_hoy_accion_pagos button{background:#F1ECFF;border-color:#9966FF}
+.st-key-mfy_hoy_accion_seguimientos button{background:#FFF6D1;border-color:#FFCC00}
+[class*=st-key-mfy_hoy_accion_]:has(.mfy-action-done) button{background:__FONDO__;border-color:__BORDE__}
+.mfy-avatar-0{background:linear-gradient(135deg,#315BBC,#4366A8)}.mfy-avatar-1{background:linear-gradient(135deg,#6533A8,#7847BF)}.mfy-avatar-2{background:linear-gradient(135deg,#315B71,#0B2545)}
+.mfy-task-person{display:flex;align-items:center;gap:12px;margin-bottom:8px}.mfy-task-person div{min-width:0}.mfy-task-person strong{overflow-wrap:anywhere}
+.st-key-mfy_mobile_quick{display:none}
+.st-key-mfy_form_compartir_hoy{padding:4px 12px!important;border-top:1px solid #E3E8F4!important}
+.st-key-mfy_form_compartir_hoy .stHorizontalBlock{align-items:center}
+.st-key-mfy_form_compartir_hoy .stMarkdown p{margin:0}
+@media(max-width:767px){
+ .st-key-mfy_page_header:has([data-vista=HOY]){min-height:150px;padding:12px 16px}
+ .st-key-mfy_page_header:has([data-vista=HOY]) .mfy-eyebrow{display:none}
+ .st-key-mfy_page_header:has([data-vista=HOY]) h1{font-size:22px!important;margin:0}
+ .st-key-mfy_page_header:has([data-vista=HOY]) p{font-size:13px;line-height:1.4}
+ .st-key-mfy_mobile_quick{display:block;position:fixed!important;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));width:48px!important;z-index:850}
+ .st-key-mfy_mobile_quick button{width:48px!important;height:48px;border-radius:50%}
+ .st-key-mfy_mobile_quick button p{font-size:0!important}
+ [class*=st-key-mfy_hoy_accion_] button{min-height:112px}
+ .st-key-mfy_form_compartir_hoy{padding:12px!important}
+}
+@media(max-width:430px){.st-key-mfy_page_header:has([data-vista=HOY]) :is(.mfy-hero-principal,.mfy-hero-orbit){display:none}.st-key-mfy_page_header:has([data-vista=HOY]) .mfy-hero-copy{padding-right:0}}
+'''.replace('__FONDO__',_al_dia['fondo']).replace('__BORDE__',_al_dia['borde']))+'</style>'
+
 
 from contextlib import contextmanager
 from html import escape
@@ -398,16 +435,19 @@ def tarjeta_kpi(label, value, *, icon="↗", tone="azul", delta=None, help=None,
             if contexto_serie:st.caption(contexto_serie)
 
 
-def tarjeta_accion(titulo, cantidad, *, key, icono, ayuda, on_click, args=()):
+def tarjeta_accion(titulo, cantidad, *, key, icono, ayuda, on_click, args=(),contexto=None):
     """Toda la tarjeta es un botón nativo: teclado, foco y callback protegidos."""
     with st.container(key='mfy_hoy_accion_'+key):
+        if contexto is not None:
+            st.markdown('<span class="mfy-action-marker'+(' mfy-action-done' if not cantidad else '')+'"></span>',unsafe_allow_html=True)
         st.button(f'**{cantidad}**\n\n{titulo}', icon=icono, help=ayuda,
                   key='hoy_tarjeta_'+key, width='stretch', on_click=on_click, args=args)
+        if contexto is not None:st.caption(contexto if cantidad else 'Al día')
 
 
-def todo_al_dia():
+def todo_al_dia(detalle='Hoy tienes espacio para nuevas ideas.'):
     st.markdown('<div class="mfy-all-done">'+ampolleta_svg()+
-                '<div><strong>Todo al día. Buen trabajo</strong><p>Hoy tienes espacio para nuevas ideas.</p></div></div>',unsafe_allow_html=True)
+                '<div><strong>Todo al día. Buen trabajo</strong><p>'+escape(detalle)+'</p></div></div>',unsafe_allow_html=True)
 
 
 def preparar_celebracion(identificador, mensaje):
@@ -516,10 +556,21 @@ def linea_de_tiempo(eventos):
         '</strong><p>'+escape(str(e.get('detalle','')))+ '</p></article>' for e in eventos)+'</section>',unsafe_allow_html=True)
 
 
-def avatar(nombre):
+def avatar(nombre, *, color_cliente=False):
     partes=str(nombre or 'Mi cuenta').split()
     letras=''.join(p[0] for p in (partes[:1]+partes[-1:] if len(partes)>1 else partes)).upper()
-    return '<span class="mfy-avatar" aria-hidden="true">'+escape(letras)+'</span>'
+    tono=(' mfy-avatar-'+str(sum(map(ord,str(nombre).casefold()))%3)) if color_cliente else ''
+    return '<span class="mfy-avatar'+tono+'" aria-hidden="true">'+escape(letras)+'</span>'
+
+
+def encabezado_hoy(titulo,fecha,mensaje,nueva):
+    with st.container(key='mfy_page_header'):
+        st.markdown(html_contenido_encabezado(titulo,fecha+' · '+mensaje,'HOY','')+
+                    ilustracion('equipo','mfy-hero-principal'),unsafe_allow_html=True)
+        st.button('Nueva solicitud',icon=':material/add_circle:',type='primary',key='hoy_nueva',on_click=nueva)
+    with st.container(key='mfy_mobile_quick'):
+        st.button('Nueva solicitud',icon=':material/add:',type='primary',key='hoy_mobile_nueva',on_click=nueva,
+                  help='Registrar una nueva solicitud')
 
 
 def esqueleto_carga(cantidad=3):

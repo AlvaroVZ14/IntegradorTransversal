@@ -10,11 +10,17 @@ from mente_futuro.ui import flash,show_error
 from servicios.hoy import configuracion_hoy,pendientes,saludo,mensaje_listo,CHILE
 from servicios.envio_cotizacion import enlace_whatsapp
 from utils.permisos import require_admin
-from utils.componentes import encabezado_pagina,tarjeta_accion,todo_al_dia
+from utils.componentes import tarjeta_accion,todo_al_dia
 from utils.mensaje_listo import copiar_mensaje
 from utils.validaciones import validar_campo
 from servicios.en_vivo import cargar, carga_inicial, estado
 from utils.en_vivo import indicador
+from servicios.hoy_vista import fecha_larga,para_hacer_ahora,actividad_reciente,avisos_automatizacion
+from utils.componentes import encabezado_hoy,avatar,chips_activos,linea_de_tiempo,ESTILOS_HOY
+
+
+def nueva_solicitud():
+    st.session_state.pending_navigation='Nueva solicitud'
 
 
 def abrir_caso(caso,tab='datos'):
@@ -130,8 +136,11 @@ def _contenido(repo, pausado=False):
     casos,cotizaciones,ventas,eventos,envios=[datos[k] for k in ('casos','cotizaciones','ventas','eventos','envios')]
     config=configuracion_hoy(datos['configuracion'])
     tareas=pendientes(casos,cotizaciones,ventas,eventos,envios,config,ahora)
-    total=sum(len(v) for v in tareas.values())
     indicador('hoy', publicar=True, pausado=pausado)
+    nombre=((repo.profile.get('nombre') or '').split() or ['Administración'])[0]
+    encabezado_hoy(f'{saludo(ahora.hour)}, {nombre}',fecha_larga(ahora),
+        'Tienes asuntos por revisar' if any(tareas.values()) else 'Todo al día. Buen trabajo',nueva_solicitud)
+    for aviso in avisos_automatizacion(datos,ahora):st.warning(aviso)
     columnas=st.columns(3)
     tarjetas=[('Por cotizar','solicitudes',':material/request_quote:','Solicitudes sin cotización emitida; incluye solicitudes en revisión.'),
         ('Pagos por registrar','pagos',':material/payments:','Ventas no anuladas con pago pendiente o abono recibido, en casos abiertos.'),
@@ -139,20 +148,61 @@ def _contenido(repo, pausado=False):
          f"Más de {config['dias_sin_respuesta']} días desde la emisión, sin venta y respetando la pausa tras un seguimiento.")]
     for columna,(label,grupo,icono,ayuda) in zip(columnas,tarjetas):
         with columna:
+            contexto={'solicitudes':'Empieza por la solicitud más antigua.','pagos':'Revisa anticipos y saldos por completar.',
+                      'seguimientos':'Retoma la conversación con el cliente.'}[grupo]
             tarjeta_accion(label,len(tareas[grupo]),key=grupo,icono=icono,ayuda=ayuda,
-                           on_click=abrir_registro,args=(label,))
-            st.markdown(chip_estado('Solicitud') if grupo=='solicitudes' else
-                        chip_estado('Pendiente','pago') if grupo=='pagos' else chip_estado('sin_respuesta','cotizacion'),unsafe_allow_html=True)
-    if not total:
-        todo_al_dia()
+                           on_click=abrir_registro,args=(label,),contexto=contexto)
+    st.subheader('Para hacer ahora')
+    lista=para_hacer_ahora(tareas)
+    otros=any(tareas[k] for k in ('datos','pagos','cierres','correos'))
+    if not lista:
+        if otros:todo_al_dia('Las solicitudes y propuestas están al día. Revisa Otros pendientes para completar lo demás.')
+        else:todo_al_dia()
+    for item in lista:
+        caso=item['caso'];q=item.get('cotizacion');venta=item.get('venta');llave='hoy_ahora_'+caso['id']
+        with st.container(key='mfy_form_'+llave):
+            from html import escape
+            st.markdown('<div class="mfy-task-person">'+avatar(caso.get('cliente'),color_cliente=True)+
+                '<div><strong>'+escape(code(caso)+' · '+(caso.get('cliente') or 'Cliente'))+'</strong></div></div>',unsafe_allow_html=True)
+            st.write(caso.get('servicio') or 'Servicio por definir')
+            chips_activos([caso.get('tematica') or 'Temática por definir',caso.get('modalidad') or 'Modalidad por definir'])
+            st.markdown(chip_estado(caso['estado'])+' '+chip_antiguedad(item['dias']),unsafe_allow_html=True)
+            a,b=st.columns([2,1])
+            if item['accion']=='cotizar':a.button('Cotizar',key=llave+'_cotizar',type='primary',on_click=abrir_caso,args=(caso,'cotizar'),width='stretch')
+            else:a.button('Hacer seguimiento',key=llave+'_seguir',type='primary',on_click=_abrir_mensaje,args=('seguimiento',caso,q,venta),width='stretch')
+            b.button('Ver caso',key=llave+'_ver',on_click=abrir_caso,args=(caso,),width='stretch')
+    if lista:st.button('Ver todas',key='hoy_solicitudes_todas',on_click=abrir_registro,args=('Para hacer ahora',))
+    if otros:
+        with st.expander('Otros pendientes'):
+            _otros_pendientes(repo,tareas)
+    st.subheader('Actividad reciente')
+    actividad=actividad_reciente(datos,ahora)
+    if actividad:
+        linea_de_tiempo([dict(fecha=e['relativo'],titulo=e['icono']+' '+e['texto'],
+            detalle=e['cliente'],estado=e['estado']) for e in actividad])
+    else:st.caption('Aquí aparecerán las novedades de tus servicios.')
     from paginas.compartir import tarjeta_compartir
     tarjeta_compartir(datos['configuracion'])
-    grupos=[('solicitudes','Solicitudes sin cotizar'),('seguimientos','Cotizaciones sin respuesta'),('datos','Faltan datos'),
+    post=st.session_state.get('hoy_post_cierre')
+    if post:
+        with st.container(key='mfy_form_post_cierre'):
+            st.subheader('Cierra el ciclo con tu cliente')
+            st.caption(code(post['caso'])+' · '+post['caso']['cliente'])
+            if post.get('cotizacion'):
+                from paginas.acciones_cotizacion import guardar_plantilla
+                guardar_plantilla(repo,post['caso'],post['cotizacion'])
+            st.button('Preparar agradecimiento',key='hoy_gracias',on_click=_abrir_mensaje,args=('agradecimiento',post['caso'],post.get('cotizacion'),post.get('venta')))
+            if st.button('Cerrar sugerencias',key='hoy_close_suggestions'):st.session_state.pop('hoy_post_cierre',None);st.rerun()
+
+
+def _otros_pendientes(repo,tareas):
+    from ui.estados import chip_estado,chip_antiguedad,color_estado
+    grupos=[('datos','Faltan datos'),
             ('pagos','Ventas con pago pendiente o anticipo'),('cierres','Casos que se pueden cerrar'),('correos','Correos por revisar')]
     for clave,titulo in grupos:
         if not tareas[clave]:continue
         st.subheader(titulo)
-        visibles=tareas[clave][:5] if clave=='solicitudes' else tareas[clave]
+        visibles=tareas[clave]
         for i,item in enumerate(visibles):
             caso=item['caso'];q=item.get('cotizacion');venta=item.get('venta')
             with st.container(key=f'mfy_form_hoy_{clave}_{i}'):
@@ -160,13 +210,7 @@ def _contenido(repo, pausado=False):
                 st.write(caso['servicio'])
                 st.markdown(chip_estado(caso['estado'])+(chip_antiguedad(item['dias']) if 'dias' in item else ''),unsafe_allow_html=True)
                 key='hoy_'+clave+'_'+caso['id']+'_'+str(i)
-                if clave=='solicitudes':
-                    st.caption(f"{item['dias']} días de espera · Más antiguas primero")
-                    st.button('Cotizar',key=key,on_click=abrir_caso,args=(caso,'cotizar'))
-                elif clave=='seguimientos':
-                    st.caption(f"{code(q,'COT')} · {item['dias']} días desde la emisión")
-                    st.button('Hacer seguimiento',key=key,on_click=_abrir_mensaje,args=('seguimiento',caso,q,venta))
-                elif clave=='datos':
+                if clave=='datos':
                     st.caption(' · '.join(item['faltantes']))
                     st.button('Completar',key=key,on_click=abrir_caso,args=(caso,'venta' if item.get('completar_venta') else 'datos'))
                 elif clave=='pagos':
@@ -190,21 +234,9 @@ def _contenido(repo, pausado=False):
                             st.session_state.pop(key+'_op',None)
                             flash('Intento marcado como revisado. No se reenvió el correo.')
                         except Exception:st.warning('No pudimos registrar la revisión. Puedes reintentar.')
-        if clave=='solicitudes':
-            st.button('Ver todas',key='hoy_solicitudes_todas',on_click=abrir_registro,args=('Por cotizar',))
-    post=st.session_state.get('hoy_post_cierre')
-    if post:
-        with st.container(key='mfy_form_post_cierre'):
-            st.subheader('Cierra el ciclo con tu cliente')
-            st.caption(code(post['caso'])+' · '+post['caso']['cliente'])
-            if post.get('cotizacion'):
-                from paginas.acciones_cotizacion import guardar_plantilla
-                guardar_plantilla(repo,post['caso'],post['cotizacion'])
-            st.button('Preparar agradecimiento',key='hoy_gracias',on_click=_abrir_mensaje,args=('agradecimiento',post['caso'],post.get('cotizacion'),post.get('venta')))
-            if st.button('Cerrar sugerencias',key='hoy_close_suggestions'):st.session_state.pop('hoy_post_cierre',None);st.rerun()
 
 
-@st.fragment(run_every='30s')
+@st.fragment(run_every='60s')
 def _actualizar(repo):
     if st.session_state.get('pending_navigation'):st.rerun(scope='app')
     # Un diálogo se abre en una ejecución completa y queda fuera del temporizador.
@@ -219,10 +251,7 @@ def _actualizar(repo):
 
 def hoy_page(repo):
     require_admin(repo)
-    ahora=datetime.now(CHILE)
-    nombre=((repo.profile.get('nombre') or '').split() or ['Administración'])[0]
-    encabezado_pagina(f'{saludo(ahora.hour)}, {nombre}',f'{ahora:%d/%m/%Y · %H:%M} · Tus próximos pasos, en un solo lugar.',
-                      'HOY','☀',mostrar_metricas=False)
+    st.markdown(ESTILOS_HOY,unsafe_allow_html=True)
     if st.session_state.get('hoy_mensaje') or st.session_state.get('hoy_post_cierre'):
         # Conserva las tarjetas mientras se edita el mensaje, sin programar lecturas.
         _contenido(repo, pausado=True)

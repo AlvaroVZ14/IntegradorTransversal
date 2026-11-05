@@ -64,7 +64,7 @@ class HoyRegistroTests(TestCase):
         app.run();self.assert_clean(app)
         cotizar=[b for b in app.button if b.label=='Cotizar']
         self.assertEqual(len(cotizar),5)
-        nombres=' '.join(x.value for x in app.markdown)
+        nombres=' '.join(x.value for x in app.markdown if 'mfy-task-person' in x.value)
         self.assertIn('Empresa ficticia 8',nombres);self.assertNotIn('Empresa ficticia 1',nombres)
         base.by_label(app.button,'Ver todas').click().run();self.assert_clean(app)
         tabla=self.tabla(app)
@@ -105,4 +105,4 @@ class HoyRegistroTests(TestCase):
             copiar.assert_called_once()
             self.assertEqual(copiar.call_args.args[0],'https://portal.example.test/?vista=solicitud&canal=directo')
             self.assertEqual(copiar.call_args.kwargs['etiqueta'],'Copiar enlace')
-            self.assertTrue(any(p.label=='Ir a Compartir' for p in app.get('page_link')))
+            self.assertTrue(any(p.label=='Más opciones' for p in app.get('page_link')))

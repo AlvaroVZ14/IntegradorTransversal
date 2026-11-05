@@ -27,7 +27,27 @@ try{
  from generate_series(1,1001) g`);
  datos=(await db.query("select mf_lectura_en_vivo('hoy') r")).rows[0].r;
  assert.equal(datos.casos.length,1001);
- assert.deepEqual(Object.keys(datos).sort(),['casos','configuracion','cotizaciones','envios','eventos','ventas']);
+ assert.deepEqual(Object.keys(datos).sort(),['casos','configuracion','cotizaciones','documentos','envios','eventos','ventas']);
+ assert.deepEqual(datos.documentos,[]);
+ const caso=datos.casos[0].id;
+ await db.exec('reset role');
+ // Fixtures históricas en PostgreSQL efímero: conservar fechas/origen para
+ // probar la lectura. La subida real y sus triggers se ensayan en Prompt 29.
+ await db.exec('alter table mf_documentos disable trigger user');
+ for(let i=0;i<9;i++){
+  const id='30000000-0000-0000-0000-'+String(i).padStart(12,'0');
+  const origen=i===8?'socia':'cliente';const estado=i===7?'pendiente':'disponible';
+  await db.query(`insert into mf_documentos(id,caso_id,tipo,nombre,archivo_path,tamano,tipo_mime,visible_cliente,subido_por,origen,estado_archivo,fecha_subida)
+    values($1,$2,'Otro',$3,$4,100,'application/pdf',true,$5,$6,$7,now()-make_interval(mins=>$8))`,
+    [id,caso,'documento_'+i+'.pdf',caso+'/'+(origen==='cliente'?'cliente/':'')+id+'.pdf',cliente,origen,estado,i]);
+ }
+ await db.exec('alter table mf_documentos enable trigger user');
+ await as(admin);
+ datos=(await db.query("select mf_lectura_en_vivo('hoy') r")).rows[0].r;
+ assert.equal(datos.documentos.length,5);
+ assert.ok(datos.documentos.every(d=>d.origen==='cliente'&&d.estado_archivo==='disponible'));
+ assert.equal(datos.documentos[0].id,'30000000-0000-0000-0000-000000000000');
+ assert.ok(datos.documentos.every(d=>!('archivo_path' in d)&&!('nombre' in d)));
  assert.ok('fecha_realizacion' in datos.casos[0]);
  assert.deepEqual(Object.keys((await db.query("select mf_lectura_en_vivo('casos') r")).rows[0].r),['casos']);
  await assert.rejects(db.query("select mf_lectura_en_vivo('otra')"));
@@ -37,7 +57,13 @@ try{
  for(const vista of ['casos','dashboard','hoy'])await assert.rejects(db.query('select mf_lectura_en_vivo($1)',[vista]));
  assert.equal((await db.query('select * from mf_casos')).rows.length,0);
  await as('','anon');await assert.rejects(db.query("select mf_lectura_en_vivo('dashboard')"));
- await db.exec('reset role');await db.exec(await readFile(new URL('../supabase/rollback/202610230001_lectura_en_vivo.sql',import.meta.url),'utf8'));
+ await db.exec('reset role');
+ await db.exec(await readFile(new URL('../supabase/rollback/202611050001_hoy_actividad.sql',import.meta.url),'utf8'));
+ await as(admin);
+ assert.ok(!('documentos' in (await db.query("select mf_lectura_en_vivo('hoy') r")).rows[0].r));
+ await db.exec('reset role');
+ assert.equal((await db.query('select count(*)::int n from mf_documentos')).rows[0].n,9);
+ await db.exec(await readFile(new URL('../supabase/rollback/202610230001_lectura_en_vivo.sql',import.meta.url),'utf8'));
  assert.equal((await db.query('select count(*)::int n from mf_casos')).rows[0].n,1001);
- console.log('En vivo SQL: snapshot, 1001 filas, vistas, RLS, admin/cliente/anon y rollback OK.');
+ console.log('En vivo SQL: snapshot, 1001 casos, 5 documentos recientes de cliente sin rutas, RLS, admin/cliente/anon y rollback sin pérdida OK.');
 }finally{await db.close();}

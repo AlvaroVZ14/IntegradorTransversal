@@ -205,7 +205,7 @@ def _listado_casos(repo):
     search = a.text_input("Buscar un caso",placeholder="Nombre, servicio o número de caso",label_visibility="collapsed",key='casos_busqueda')
     state = b.selectbox("Filtrar estado",["Todos los estados",*STATES,*FILTROS_ACCION],label_visibility="collapsed",format_func=etiqueta_opcion_estado,
                         key='casos_estado_filtro',on_change=_cambio_estado_registro,
-                        help='Elige un estado o uno de los tres grupos de pendientes de Hoy.')
+                        help='Elige un estado o un grupo de pendientes de Hoy.')
     st.session_state.setdefault('casos_chips_estados',state if state in ('Todos los estados',*STATES) else None)
     conteos={e:sum(c['estado']==e for c in cases) for e in STATES}
     st.pills('Estados del caso',['Todos los estados',*STATES],selection_mode='single',

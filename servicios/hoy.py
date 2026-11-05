@@ -94,7 +94,7 @@ def pendientes(casos,cotizaciones,ventas,eventos,envios,config,ahora=None):
 
 
 FILTROS_ACCION = {'Por cotizar':'solicitudes', 'Pagos por registrar':'pagos',
-                  'Cotizaciones sin respuesta':'seguimientos'}
+                  'Cotizaciones sin respuesta':'seguimientos','Para hacer ahora':'ahora'}
 
 
 def casos_por_accion(datos, filtro, ahora=None):
@@ -103,6 +103,9 @@ def casos_por_accion(datos, filtro, ahora=None):
         raise ValueError('Selecciona un filtro de pendientes válido.')
     tareas = pendientes(*(datos[k] for k in ('casos','cotizaciones','ventas','eventos','envios')),
                         configuracion_hoy(datos.get('configuracion',{})), ahora)
+    if filtro=='Para hacer ahora':
+        from servicios.hoy_vista import para_hacer_ahora
+        return [item['caso'] for item in para_hacer_ahora(tareas,None)]
     return [item['caso'] for item in tareas[FILTROS_ACCION[filtro]]]
 
 
