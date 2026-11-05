@@ -194,6 +194,10 @@ def _css_estados():
     css+='.st-key-casos_chips_estados button[data-selected]{outline:3px solid currentColor;outline-offset:2px;font-weight:700}'
     return css
 
+# Sobrescribe el iframe nativo stIFrame solo dentro del informe avanzado.
+CSS_PORTAL += r'''
+.st-key-mfy_looker_embed iframe{width:100%;height:clamp(480px,75svh,960px)}
+'''
 ESTILOS_BASE='<style>'+_compactar(CSS_PORTAL+_css_estados())+CSS_VIDRIO+'</style>'
 
 ESTILOS_COMPARTIR='<style>'+_compactar('''

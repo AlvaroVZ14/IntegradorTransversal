@@ -186,3 +186,5 @@ Hoy muestra tres tarjetas accionables y hasta cinco solicitudes por cotizar; el 
 ## Copia automática para informes
 
 Administración puede ver **Mi cuenta → Estado de la hoja**. La integración con Google Sheets requiere activación una sola vez; no interfiere con el guardado de datos. SQL, secretos, pasos y límites: [guía de Google Sheets](docs/hoja_google38.md).
+
+El Dashboard puede mostrar un **Informe avanzado** privado de Looker Studio, cargado solo al abrir su pestaña. La [guía de Looker Studio](docs/looker_studio.md) contiene las fórmulas, gráficos, permisos y pasos de creación manual. Sin URL en secretos se conserva el Dashboard habitual.

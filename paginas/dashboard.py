@@ -225,21 +225,44 @@ def _actualizar_dashboard(repo, filtros_activos, demo=False):
             logout()
 
 
+def _dashboard_actual(repo):
+    hero = st.container()
+    activos = filtros()
+    start, end, grouping, personalizado = activos
+    with hero:
+        encabezado_pagina('Una mirada a tu negocio', etiqueta_rango(start, end, grouping, personalizado),
+                          'DASHBOARD', '✦', mostrar_metricas=False)
+    demo = st.toggle('Ver datos de prueba', key='dash_demo', value=False,
+                     help='Muestra un ejemplo ficticio solo en este Dashboard. No agrega ni modifica datos reales.')
+    _actualizar_dashboard(repo, activos, demo)
+    if not demo:
+        from paginas.reportes import panel_reportes
+        panel_reportes(repo)
+
+
 def dashboard_page(repo):
     require_admin(repo)
+    from servicios.informe_avanzado import leer_informe
+    try:
+        enlaces = leer_informe()
+    except ValueError as error:
+        st.warning(str(error))
+        enlaces = None
     with st.container(key='mfy_dashboard'):
-        hero = st.container()
-        activos = filtros()
-        start, end, grouping, personalizado = activos
-        with hero:
-            encabezado_pagina('Una mirada a tu negocio', etiqueta_rango(start, end, grouping, personalizado),
-                              'DASHBOARD', '✦', mostrar_metricas=False)
-        demo = st.toggle('Ver datos de prueba', key='dash_demo', value=False,
-                         help='Muestra un ejemplo ficticio solo en este Dashboard. No agrega ni modifica datos reales.')
-        _actualizar_dashboard(repo, activos, demo)
-        if not demo:
-            from paginas.reportes import panel_reportes
-            panel_reportes(repo)
+        if not enlaces:
+            _dashboard_actual(repo)
+            return
+        tablero, informe = st.tabs(['Dashboard', 'Informe avanzado'], key='dashboard_vista', on_change='rerun')
+        # .open con seguimiento de estado (Streamlit 1.65): no se ejecuta ni
+        # se transmite un iframe oculto. Tampoco se consultan datos del tablero
+        # mientras se usa el informe externo.
+        if tablero.open:
+            with tablero:
+                _dashboard_actual(repo)
+        if informe.open:
+            with informe:
+                from paginas.informe_avanzado import mostrar_informe
+                mostrar_informe(repo, enlaces)
 
 
 
